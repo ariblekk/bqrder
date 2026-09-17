@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bqrder-db
+    environment:
+      POSTGRES_USER: bqrder
+      POSTGRES_PASSWORD: bqrder
+      POSTGRES_DB: bqrder
+    volumes:
+      - bqrder_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bqrder -d bqrder"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    image: ariblekk/bqrder:v1.0.3
+    build:
+      context: .
+      args:
+        VITE_API_URL: /api/v1
+    container_name: bqrder
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: bqrder
+      DB_PASSWORD: bqrder
+      DB_NAME: bqrder
+      DB_SSLMODE: disable
+      JWT_SECRET: cf11918922c61d19e5787aed6cf15f34
+      JWT_REFRESH_SECRET: 7ab8ab31f9621f3a4c6d88ea089c34e5
+      UPLOAD_PATH: /app/uploads
+      FRONTEND_URL: http://localhost:2301
+      TRUSTED_PROXIES: 127.0.0.1/8
+    ports:
+      - "2301:80"
+    volumes:
+      - bqrder_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  bqrder_pgdata:
+  bqrder_uploads:

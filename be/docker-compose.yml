@@ -1,0 +1,53 @@
+# Local development stack. For production, do not expose Postgres on the host,
+# use strong passwords, and set APP_ENV=production (the API then refuses to
+# start with weak secrets / localhost URLs).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bqrder-db
+    environment:
+      POSTGRES_USER: bqrder
+      POSTGRES_PASSWORD: bqrder
+      POSTGRES_DB: bqrder
+    ports:
+      - "5432:5432"
+    volumes:
+      - bqrder_pgdata:/var/lib/postgresql/data
+      - ./migrations/full_schema.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bqrder -d bqrder"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: bqrder-api
+    env_file: .env
+    environment:
+      APP_ENV: development
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: bqrder
+      DB_PASSWORD: bqrder
+      DB_NAME: bqrder
+      DB_SSLMODE: disable
+      UPLOAD_PATH: /app/uploads
+    ports:
+      - "8080:8080"
+    volumes:
+      - bqrder_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  bqrder_pgdata:
+  bqrder_uploads:

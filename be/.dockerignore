@@ -1,0 +1,7 @@
+.env
+.git
+*.md
+Dockerfile
+docker-compose.yml
+uploads/
+coverage.out

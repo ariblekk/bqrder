@@ -1,0 +1,17 @@
+# Binaries
+be.exe
+be
+
+# Secrets
+.env
+
+# Uploads
+uploads/
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
