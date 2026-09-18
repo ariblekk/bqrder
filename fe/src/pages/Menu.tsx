@@ -1,9 +1,15 @@
-import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, ShoppingBag } from 'lucide-react'
-import { get } from '../api/client'
-import type { MenuCategory, ProductOption, ProductVariant, Table, MenuProduct } from '../api/types'
-import ProductPicker, { type PickChoice } from '../components/ProductPicker'
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, ShoppingBag } from "lucide-react";
+import { get } from "../api/client";
+import type {
+  MenuCategory,
+  ProductOption,
+  ProductVariant,
+  Table,
+  MenuProduct,
+} from "../api/types";
+import ProductPicker, { type PickChoice } from "../components/ProductPicker";
 import {
   Badge,
   Button,
@@ -12,110 +18,136 @@ import {
   EmptyContent,
   EmptyDescription,
   Skeleton,
-} from '../components/ui'
-import { useAsync } from '../hooks/useAsync'
-import { useDocTitle } from '../hooks/useDocTitle'
-import { cn } from '../lib/utils'
+} from "../components/ui";
+import { useAsync } from "../hooks/useAsync";
+import { useDocTitle } from "../hooks/useDocTitle";
+import { cn } from "../lib/utils";
 
-const CART_KEY = 'bqrder_cart'
-const QR_KEY = 'bqrder_qr'
+const CART_KEY = "qrdigo_cart";
+const QR_KEY = "qrdigo_qr";
 
 export interface CartLine {
-  key: string
-  product: MenuProduct
-  variant: ProductVariant | null
-  options: ProductOption[]
-  qty: number
-  notes: string
+  key: string;
+  product: MenuProduct;
+  variant: ProductVariant | null;
+  options: ProductOption[];
+  qty: number;
+  notes: string;
 }
 
-const lineVariant = (l: CartLine) => l.variant?.price ?? l.product.price
+const lineVariant = (l: CartLine) => l.variant?.price ?? l.product.price;
 export const linePrice = (l: CartLine) =>
-  lineVariant(l) + l.options.reduce((s, o) => s + o.price, 0)
+  lineVariant(l) + l.options.reduce((s, o) => s + o.price, 0);
 
-export function lineKey(p: { id: number }, variant: ProductVariant | null, options: ProductOption[]) {
+export function lineKey(
+  p: { id: number },
+  variant: ProductVariant | null,
+  options: ProductOption[],
+) {
   const o = [...options]
     .sort((a, b) => a.id - b.id)
     .map((x) => x.id)
-    .join(',')
-  return `${p.id}:${variant?.id ?? 0}:${o}`
+    .join(",");
+  return `${p.id}:${variant?.id ?? 0}:${o}`;
 }
 
 export function getCart(): CartLine[] {
   try {
-    const raw: any[] = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
+    const raw: any[] = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
     return raw.map((l) => ({
       key: l.key ?? `${l.product.id}:0::`,
       product: l.product,
       variant: l.variant ?? null,
       options: l.options ?? [],
       qty: l.qty,
-      notes: l.notes ?? '',
-    }))
+      notes: l.notes ?? "",
+    }));
   } catch {
-    return []
+    return [];
   }
 }
 export function setCart(cart: CartLine[]) {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart))
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
 }
 export function getQr() {
-  return localStorage.getItem(QR_KEY) || ''
+  return localStorage.getItem(QR_KEY) || "";
 }
 
-const rupiah = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
 export default function Menu() {
-  const [params] = useSearchParams()
-  const qr = params.get('qr') || getQr()
-  if (params.get('qr')) localStorage.setItem(QR_KEY, qr)
+  const [params] = useSearchParams();
+  const qr = params.get("qr") || getQr();
+  if (params.get("qr")) localStorage.setItem(QR_KEY, qr);
 
-  const { data: table } = useAsync(() => get<Table>(`/public/table/${qr}`), [qr])
-  useDocTitle(table?.data ? `Menu ${table.data.branch_name || 'Digital'} — Meja ${table.data.table_number}` : 'Menu Digital')
+  const { data: table } = useAsync(
+    () => get<Table>(`/public/table/${qr}`),
+    [qr],
+  );
+  useDocTitle(
+    table?.data
+      ? `Menu ${table.data.branch_name || "Digital"} — Meja ${table.data.table_number}`
+      : "Menu Digital",
+  );
 
-  const [cart, setCartState] = useState<CartLine[]>(getCart)
-  const [active, setActive] = useState('')
-  const [picker, setPicker] = useState<MenuProduct | null>(null)
+  const [cart, setCartState] = useState<CartLine[]>(getCart);
+  const [active, setActive] = useState("");
+  const [picker, setPicker] = useState<MenuProduct | null>(null);
   const { data, err } = useAsync(
     () => get<MenuCategory[]>(`/public/menu?qr_token=${qr}`),
     [qr],
-  )
-  const total = cart.reduce((s, l) => s + linePrice(l) * l.qty, 0)
-  const count = cart.reduce((s, l) => s + l.qty, 0)
+  );
+  const total = cart.reduce((s, l) => s + linePrice(l) * l.qty, 0);
+  const count = cart.reduce((s, l) => s + l.qty, 0);
 
-  const cats = data?.data ?? []
+  const cats = data?.data ?? [];
   const products = active
-    ? cats.find((c) => c.name === active)?.products ?? []
-    : cats.flatMap((c) => c.products)
+    ? (cats.find((c) => c.name === active)?.products ?? [])
+    : cats.flatMap((c) => c.products);
 
   function adjustLine(
     p: MenuProduct,
     choice: { variant: ProductVariant | null; options: ProductOption[] },
     delta: number,
   ) {
-    const key = lineKey(p, choice.variant, choice.options)
+    const key = lineKey(p, choice.variant, choice.options);
     setCartState((prev) => {
-      const found = prev.find((l) => l.key === key)
+      const found = prev.find((l) => l.key === key);
       const next = found
-        ? prev.map((l) => (l.key === key ? { ...l, qty: Math.max(0, l.qty + delta) } : l))
-        : [...prev, { key, product: p, variant: choice.variant, options: choice.options, qty: delta, notes: '' }]
-          .filter((l) => l.qty > 0)
-      setCart(next)
-      return next
-    })
+        ? prev.map((l) =>
+            l.key === key ? { ...l, qty: Math.max(0, l.qty + delta) } : l,
+          )
+        : [
+            ...prev,
+            {
+              key,
+              product: p,
+              variant: choice.variant,
+              options: choice.options,
+              qty: delta,
+              notes: "",
+            },
+          ].filter((l) => l.qty > 0);
+      setCart(next);
+      return next;
+    });
   }
 
   function addQuick(p: MenuProduct, delta: number) {
-    adjustLine(p, { variant: null, options: [] }, delta)
+    adjustLine(p, { variant: null, options: [] }, delta);
   }
 
   function openPicker(p: MenuProduct) {
-    setPicker(p)
+    setPicker(p);
   }
 
   function confirmChoice(choice: PickChoice) {
-    if (!picker) return
-    adjustLine(picker, { variant: choice.variant, options: choice.options }, choice.qty)
+    if (!picker) return;
+    adjustLine(
+      picker,
+      { variant: choice.variant, options: choice.options },
+      choice.qty,
+    );
   }
 
   return (
@@ -129,11 +161,14 @@ export default function Menu() {
             Selamat datang di
           </div>
           <h1 className="mt-0.5 text-2xl font-bold tracking-tight">
-            {table?.data?.branch_name || 'Menu'}
+            {table?.data?.branch_name || "Menu"}
           </h1>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-primary-foreground/80">
             {table?.data && (
-              <Badge variant="secondary" className="bg-white/15 text-primary-foreground hover:bg-white/15">
+              <Badge
+                variant="secondary"
+                className="bg-white/15 text-primary-foreground hover:bg-white/15"
+              >
                 Meja {table.data.table_number}
               </Badge>
             )}
@@ -143,16 +178,24 @@ export default function Menu() {
       </div>
 
       <div className="mx-auto w-full max-w-2xl">
-        {err && <p className="px-4 pt-3 text-sm font-medium text-destructive sm:px-6">{err}</p>}
+        {err && (
+          <p className="px-4 pt-3 text-sm font-medium text-destructive sm:px-6">
+            {err}
+          </p>
+        )}
 
         {cats.length > 0 && (
           <div className="sticky top-0 z-10 px-4 py-2 backdrop-blur sm:px-6">
             <div className="no-scrollbar flex gap-2 overflow-x-auto">
-              <Pill active={active === ''} onClick={() => setActive('')}>
+              <Pill active={active === ""} onClick={() => setActive("")}>
                 Semua
               </Pill>
               {cats.map((c) => (
-                <Pill key={c.id} active={active === c.name} onClick={() => setActive(c.name)}>
+                <Pill
+                  key={c.id}
+                  active={active === c.name}
+                  onClick={() => setActive(c.name)}
+                >
                   {c.name}
                 </Pill>
               ))}
@@ -179,7 +222,9 @@ export default function Menu() {
           <div className="px-3 py-8">
             <Empty>
               <EmptyContent>
-                <EmptyDescription>Tidak ada menu untuk saat ini.</EmptyDescription>
+                <EmptyDescription>
+                  Tidak ada menu untuk saat ini.
+                </EmptyDescription>
               </EmptyContent>
             </Empty>
           </div>
@@ -187,17 +232,21 @@ export default function Menu() {
 
         <div className="space-y-2 p-3 sm:p-4">
           {products.map((p) => {
-            const qty = cart.filter((l) => l.product.id === p.id).reduce((s, l) => s + l.qty, 0)
-            const soldOut = p.stock === 0
-            const hasSales = (p.total_sold ?? 0) > 0
+            const qty = cart
+              .filter((l) => l.product.id === p.id)
+              .reduce((s, l) => s + l.qty, 0);
+            const soldOut = p.stock === 0;
+            const hasSales = (p.total_sold ?? 0) > 0;
             const minPrice =
-              p.variants.length > 0 ? Math.min(...p.variants.map((v) => v.price)) : p.price
-            const hasChoices = p.variants.length > 0 || p.options.length > 0
+              p.variants.length > 0
+                ? Math.min(...p.variants.map((v) => v.price))
+                : p.price;
+            const hasChoices = p.variants.length > 0 || p.options.length > 0;
             return (
               <Card
                 key={p.id}
                 size="sm"
-                className={cn('p-0', soldOut && 'opacity-70')}
+                className={cn("p-0", soldOut && "opacity-70")}
               >
                 <div className="flex gap-3 p-2">
                   <button
@@ -212,7 +261,9 @@ export default function Menu() {
                         src={p.image_url}
                         alt={p.name}
                         loading="lazy"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                        onError={(e) =>
+                          (e.currentTarget.style.display = "none")
+                        }
                       />
                     ) : (
                       <span className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -246,12 +297,15 @@ export default function Menu() {
                     )}
                     <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
                       <span className="text-sm font-bold">
-                        {hasChoices && 'mulai '}{rupiah(minPrice)}
+                        {hasChoices && "mulai "}
+                        {rupiah(minPrice)}
                       </span>
                       {hasChoices ? (
                         <div className="flex items-center gap-1.5">
                           {qty > 0 && (
-                            <span className="text-xs font-semibold text-muted-foreground">{qty}x</span>
+                            <span className="text-xs font-semibold text-muted-foreground">
+                              {qty}x
+                            </span>
                           )}
                           <Button
                             size="icon-sm"
@@ -285,7 +339,9 @@ export default function Menu() {
                           >
                             −
                           </Button>
-                          <span className="min-w-5 text-center text-sm font-semibold">{qty}</span>
+                          <span className="min-w-5 text-center text-sm font-semibold">
+                            {qty}
+                          </span>
                           <Button
                             size="icon-sm"
                             variant="ghost"
@@ -301,7 +357,7 @@ export default function Menu() {
                   </div>
                 </div>
               </Card>
-            )
+            );
           })}
         </div>
       </div>
@@ -311,9 +367,15 @@ export default function Menu() {
           <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-3 rounded-2xl bg-primary px-4 text-primary-foreground shadow-xl">
             <div className="min-w-0">
               <p className="text-xs opacity-80">{count} item dipilih</p>
-              <p className="truncate text-lg font-bold leading-tight">{rupiah(total)}</p>
+              <p className="truncate text-lg font-bold leading-tight">
+                {rupiah(total)}
+              </p>
             </div>
-            <Button asChild size="lg" className="h-10 bg-background px-5 text-foreground hover:bg-background/90">
+            <Button
+              asChild
+              size="lg"
+              className="h-10 bg-background px-5 text-foreground hover:bg-background/90"
+            >
               <Link to="/checkout" className="flex items-center gap-1.5">
                 Lihat Pesanan
                 <ArrowRight className="size-4" />
@@ -330,7 +392,7 @@ export default function Menu() {
         onConfirm={confirmChoice}
       />
     </div>
-  )
+  );
 }
 
 function Pill({
@@ -338,22 +400,22 @@ function Pill({
   onClick,
   children,
 }: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'shrink-0 cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+        "shrink-0 cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
         active
-          ? 'bg-primary text-primary-foreground shadow-sm'
-          : 'bg-muted text-muted-foreground hover:bg-secondary',
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "bg-muted text-muted-foreground hover:bg-secondary",
       )}
     >
       {children}
     </button>
-  )
+  );
 }

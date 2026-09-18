@@ -1,4 +1,4 @@
-# bqrder
+# qrdigo
 
 Sistem Point of Sale (POS) multi-branch untuk restoran/kafe:
 pemesanan pelanggan via **QR meja**, layar **kasir (POS)**, dan **dashboard admin** multi-cabang.
@@ -6,7 +6,7 @@ pemesanan pelanggan via **QR meja**, layar **kasir (POS)**, dan **dashboard admi
 ## Struktur
 
 ```
-bqrder/
+qrdigo/
 ├── be/    # REST API (Go + Gin + PostgreSQL + JWT)
 └── fe/   # Web app (React + Vite + TypeScript)
 ```
@@ -18,7 +18,7 @@ bqrder/
 ## Persyaratan
 
 - **Node.js** 18+ & pnpm
-- **Go** 1.22+ *atau* **Docker** (untuk backend)
+- **Go** 1.22+ _atau_ **Docker** (untuk backend)
 - **PostgreSQL** 14+ (opsional — bisa pakai Supabase)
 
 ## 1. Database
@@ -26,15 +26,17 @@ bqrder/
 Pilih salah satu:
 
 ### Opsi A — Supabase (disarankan, gratis)
-1. Buat project di [supabase.com](https://supabase.com), salin **DATABASE_URL** (*connection string*).
+
+1. Buat project di [supabase.com](https://supabase.com), salin **DATABASE_URL** (_connection string_).
 2. Buka **SQL Editor** → paste isi `be/migrations/full_schema.sql` → **Run**.
    > Skema **tidak membuat user seed** — akun super admin dibuat saat first run via form setup.
 
 ### Opsi B — Postgres lokal / Docker
+
 ```ps1
-createdb bqrder
-psql -d bqrder -U postgres -f be/migrations/001_initial.sql
-psql -d bqrder -U postgres -f be/migrations/002_order_counters.sql
+createdb qrdigo
+psql -d qrdigo -U postgres -f be/migrations/001_initial.sql
+psql -d qrdigo -U postgres -f be/migrations/002_order_counters.sql
 ```
 
 ## 2. Backend
@@ -49,11 +51,13 @@ cp .env.example .env
 ```
 
 Isi minimal yang wajib diganti di `.env`:
+
 - `JWT_SECRET` & `JWT_REFRESH_SECRET` → secret yang kuat
 - `DB_PASSWORD` → password database
 - `FRONTEND_URL` → `http://localhost:3000` (harus sama dengan port frontend, untuk CORS)
 
 Jalankan (salah satu):
+
 ```ps1
 # opsi 1 — Go langsung
 go mod download
@@ -78,7 +82,7 @@ Buka `http://localhost:3000`. Jika backend bukan di `localhost:8080`, ubah `VITE
 
 ## 4. Tes Cepat (End-to-End)
 
-1. Buka `http://localhost:3000` → **first run**: isi form setup (nama, email, password) → akun pertama otomatis jadi Super Admin *(ganti password via menu user setelahnya)*
+1. Buka `http://localhost:3000` → **first run**: isi form setup (nama, email, password) → akun pertama otomatis jadi Super Admin _(ganti password via menu user setelahnya)_
 2. **Dashboard** → buat **Cabang** (khusus super admin), lalu pilih cabang di dropdown
 3. **Kategori** → buat (mis. "Makanan") → **Produk** → tambah menu
 4. **Meja** → tambah meja → buka link **QR** meja
@@ -90,7 +94,7 @@ Buka `http://localhost:3000`. Jika backend bukan di `localhost:8080`, ubah `VITE
 
 **Business Source License 1.1 (BUSL-1.1)** — lihat file `LICENSE`.
 
-- Self-host **gratis** untuk 1 deployment, dipakai operasional usahamu sendiri (lihat *Additional Use Grant*).
+- Self-host **gratis** untuk 1 deployment, dipakai operasional usahamu sendiri (lihat _Additional Use Grant_).
 - Perlu lebih dari 1 project, atau mau nyediain sebagai SaaS/hosted ke pihak lain → butuh lisensi komersial.
 - Setelah **Change Date** (2030-09-18) lisensi berubah otomatis jadi **Apache License 2.0**.
 
@@ -103,7 +107,7 @@ Buka `http://localhost:3000`. Jika backend bukan di `localhost:8080`, ubah `VITE
 ## 5. Deploy Produksi (Docker)
 
 ```
-bqrder/
+qrdigo/
 ├── docker-compose.yml   # postgres + api + web (nginx, satu origin)
 ├── be/
 └── fe/

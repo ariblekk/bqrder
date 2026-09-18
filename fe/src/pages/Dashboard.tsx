@@ -86,7 +86,6 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
-      Aksi Cepat
     </>
   );
 }

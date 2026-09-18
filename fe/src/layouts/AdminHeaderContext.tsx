@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   createContext,
@@ -6,32 +6,32 @@ import {
   useContext,
   useState,
   type ReactNode,
-} from "react"
+} from "react";
 
 interface HeaderState {
-  title: string
-  action?: ReactNode
+  title: string;
+  action?: ReactNode;
 }
 
-const defaultHeader: HeaderState = { title: "bqrder" }
+const defaultHeader: HeaderState = { title: "qrdigo" };
 
 const HeaderContext = createContext<{
-  header: HeaderState
-  setHeader: (h: Partial<HeaderState>) => void
-}>({ header: defaultHeader, setHeader: () => {} })
+  header: HeaderState;
+  setHeader: (h: Partial<HeaderState>) => void;
+}>({ header: defaultHeader, setHeader: () => {} });
 
 export function AdminHeaderProvider({ children }: { children: ReactNode }) {
-  const [header, setHeaderState] = useState<HeaderState>(defaultHeader)
+  const [header, setHeaderState] = useState<HeaderState>(defaultHeader);
   const setHeader = useCallback((h: Partial<HeaderState>) => {
-    setHeaderState((prev) => ({ ...prev, ...h }))
-  }, [])
+    setHeaderState((prev) => ({ ...prev, ...h }));
+  }, []);
   return (
     <HeaderContext.Provider value={{ header, setHeader }}>
       {children}
     </HeaderContext.Provider>
-  )
+  );
 }
 
 export function useAdminHeader() {
-  return useContext(HeaderContext)
+  return useContext(HeaderContext);
 }

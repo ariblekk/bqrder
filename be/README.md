@@ -1,10 +1,10 @@
-# bqrder Backend
+# qrdigo Backend
 
-RESTful API backend untuk aplikasi Point of Sale (POS) bernama **bqrder**, dibangun dengan **Go** dan **Gin Framework**, menggunakan **PostgreSQL** sebagai database, serta **JWT** untuk autentikasi dengan RBAC.
+RESTful API backend untuk aplikasi Point of Sale (POS) bernama **qrdigo**, dibangun dengan **Go** dan **Gin Framework**, menggunakan **PostgreSQL** sebagai database, serta **JWT** untuk autentikasi dengan RBAC.
 
 ## Fitur
 
-- **Multi-branch**: Mendukung beberapa cabang toko dengan hierarki *Super Admin* > *Branch Admin* > *Kasir*.
+- **Multi-branch**: Mendukung beberapa cabang toko dengan hierarki _Super Admin_ > _Branch Admin_ > _Kasir_.
 - **Manajemen Lengkap**: Meja (QR code), kategori produk, produk (dengan upload gambar), user/kasir.
 - **Modul POS**: Pesanan aktif, update status pesanan, pemrosesan pembayaran tunai, dan order walk-in/takeaway.
 - **Modul Public**: Validasi QR meja, daftar menu, checkout pesanan pelanggan, dan monitoring status pesanan.
@@ -13,14 +13,14 @@ RESTful API backend untuk aplikasi Point of Sale (POS) bernama **bqrder**, diban
 
 ## Server Dependencies (Go)
 
-| Dependency | Version | Kegunaan |
-|---|---|---|
-| [gin-gonic/gin](https://github.com/gin-gonic/gin) | v1.11+ | Web framework |
-| [gin-contrib/cors](https://github.com/gin-contrib/cors) | v1.7+ | CORS middleware |
-| [github.com/lib/pq](https://github.com/lib/pq) | v1.12+ | PostgreSQL driver |
-| [golang-jwt/jwt/v5](https://github.com/golang-jwt/jwt) | v5.3+ | JWT signing & verification |
-| [joho/godotenv](https://github.com/joho/godotenv) | v1.5+ | Load `.env` |
-| golang.org/x/crypto | v0.5+ | bcrypt password hashing |
+| Dependency                                              | Version | Kegunaan                   |
+| ------------------------------------------------------- | ------- | -------------------------- |
+| [gin-gonic/gin](https://github.com/gin-gonic/gin)       | v1.11+  | Web framework              |
+| [gin-contrib/cors](https://github.com/gin-contrib/cors) | v1.7+   | CORS middleware            |
+| [github.com/lib/pq](https://github.com/lib/pq)          | v1.12+  | PostgreSQL driver          |
+| [golang-jwt/jwt/v5](https://github.com/golang-jwt/jwt)  | v5.3+   | JWT signing & verification |
+| [joho/godotenv](https://github.com/joho/godotenv)       | v1.5+   | Load `.env`                |
+| golang.org/x/crypto                                     | v0.5+   | bcrypt password hashing    |
 
 ## Struktur Project (Clean Architecture)
 
@@ -60,19 +60,19 @@ be/
 
 ```bash
 # 1. Clone repository
-git clone <repo-url> bqrder
-cd bqrder/be
+git clone <repo-url> qrdigo
+cd qrdigo/be
 
 # 2. Salin file env
 cp .env.example .env
 #   lalu sesuaikan nilai DB_PASSWORD, JWT_SECRET, dll.
 
 # 3. Buat database
-createdb bqrder
+createdb qrdigo
 
 # 4. Jalankan migrasi (skema + seed) — urutan 001 lalu 002
-psql -d bqrder -U postgres -f migrations/001_initial.sql
-psql -d bqrder -U postgres -f migrations/002_order_counters.sql
+psql -d qrdigo -U postgres -f migrations/001_initial.sql
+psql -d qrdigo -U postgres -f migrations/002_order_counters.sql
 
 # 5. Install dependensi
 go mod download
@@ -97,7 +97,7 @@ docker compose logs -f api
 ```
 
 Migrasi dijalankan otomatis oleh container Postgres dari `./migrations/`.
-Upload produk tersimpan di volume `bqrder_uploads`.
+Upload produk tersimpan di volume `qrdigo_uploads`.
 
 ### First Run — Setup Super Admin
 
@@ -105,31 +105,31 @@ Tidak ada akun dan cabang seed. Saat database masih kosong, form setup di fronte
 
 ## Konfigurasi `.env`
 
-| Variabel | Default | Deskripsi |
-|---|---|---|
-| `DB_HOST` | `localhost` | Host PostgreSQL |
-| `DB_PORT` | `5432` | Port PostgreSQL |
-| `DB_USER` | `postgres` | User database |
-| `DB_PASSWORD` | *(kosong)* | Password database |
-| `DB_NAME` | `bqrder` | Nama database |
-| `DB_SSLMODE` | `disable` | SSL mode PostgreSQL |
-| `JWT_SECRET` | *(wajib diganti)* | Secret untuk access token |
-| `JWT_REFRESH_SECRET` | *(wajib diganti)* | Secret untuk refresh token |
-| `JWT_EXPIRY_HOURS` | `24` | Umur access token (jam) |
-| `JWT_REFRESH_DAYS` | `7` | Umur refresh token (hari) |
-| `SERVER_PORT` | `8080` | Port HTTP server |
-| `BASE_URL` | `http://localhost:8080` | URL dasar untuk generate QR link & image URL |
-| `FRONTEND_URL` | `http://localhost:3000` | Origin frontend (CORS) |
-| `UPLOAD_PATH` | `./uploads` | Direktori penyimpanan gambar |
+| Variabel             | Default                 | Deskripsi                                    |
+| -------------------- | ----------------------- | -------------------------------------------- |
+| `DB_HOST`            | `localhost`             | Host PostgreSQL                              |
+| `DB_PORT`            | `5432`                  | Port PostgreSQL                              |
+| `DB_USER`            | `postgres`              | User database                                |
+| `DB_PASSWORD`        | _(kosong)_              | Password database                            |
+| `DB_NAME`            | `qrdigo`                | Nama database                                |
+| `DB_SSLMODE`         | `disable`               | SSL mode PostgreSQL                          |
+| `JWT_SECRET`         | _(wajib diganti)_       | Secret untuk access token                    |
+| `JWT_REFRESH_SECRET` | _(wajib diganti)_       | Secret untuk refresh token                   |
+| `JWT_EXPIRY_HOURS`   | `24`                    | Umur access token (jam)                      |
+| `JWT_REFRESH_DAYS`   | `7`                     | Umur refresh token (hari)                    |
+| `SERVER_PORT`        | `8080`                  | Port HTTP server                             |
+| `BASE_URL`           | `http://localhost:8080` | URL dasar untuk generate QR link & image URL |
+| `FRONTEND_URL`       | `http://localhost:3000` | Origin frontend (CORS)                       |
+| `UPLOAD_PATH`        | `./uploads`             | Direktori penyimpanan gambar                 |
 
 ## Role & Hak Akses
 
-| Role | Hak Akses |
-|---|---|
-| `super_admin` | Akses penuh semua cabang, manajemen branch, user, meja, produk, kategori, laporan |
-| `branch_admin` | Akses penuh dalam cabangnya: meja, produk, kategori, user (hanya kasir), laporan |
-| `cashier` | Khusus modul POS: pesanan, status, pembayaran, order langsung |
-| `public` | Tanpa autentikasi: scan QR meja, menu, checkout, status pesanan |
+| Role           | Hak Akses                                                                         |
+| -------------- | --------------------------------------------------------------------------------- |
+| `super_admin`  | Akses penuh semua cabang, manajemen branch, user, meja, produk, kategori, laporan |
+| `branch_admin` | Akses penuh dalam cabangnya: meja, produk, kategori, user (hanya kasir), laporan  |
+| `cashier`      | Khusus modul POS: pesanan, status, pembayaran, order langsung                     |
+| `public`       | Tanpa autentikasi: scan QR meja, menu, checkout, status pesanan                   |
 
 > Super Admin dapat menentukan cabang target lewat query parameter `?branch_id=`. Jika tidak diberikan, default ke cabang di token.
 
@@ -152,7 +152,7 @@ Ringkasan modul:
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/bootstrap \
   -H "Content-Type: application/json" \
-  -d '{"name":"Super Admin","email":"admin@bqrder.com","password":"ganti-ini-123","branch":{"name":"Kafe Melati","address":"Jl. Melati 12","phone":"08123456789"}}'
+  -d '{"name":"Super Admin","email":"admin@qrdigo.com","password":"ganti-ini-123","branch":{"name":"Kafe Melati","address":"Jl. Melati 12","phone":"08123456789"}}'
 ```
 
 Response memuat access/refresh token langsung.
@@ -162,7 +162,7 @@ Response memuat access/refresh token langsung.
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@bqrder.com","password":"admin123"}'
+  -d '{"email":"admin@qrdigo.com","password":"admin123"}'
 ```
 
 ### 2. Buat Meja & Ambil QR Link

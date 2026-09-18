@@ -367,7 +367,7 @@ func (u *OrderUseCase) Receipt(id, branchID int, branch *entities.Branch) (strin
 	sub := strings.Repeat("-", width)
 
 	b.WriteString(line + "\n")
-	b.WriteString(center("BQRDER", width) + "\n")
+	b.WriteString(center("qrdigo", width) + "\n")
 	if branch != nil {
 		b.WriteString(center(branch.Name, width) + "\n")
 		if branch.Address != "" {

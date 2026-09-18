@@ -1,6 +1,6 @@
-# bqrder API Documentation
+# qrdigo API Documentation
 
-Dokumentasi REST API untuk backend **bqrder**.
+Dokumentasi REST API untuk backend **qrdigo**.
 
 - **Base URL**: `http://localhost:8080/api/v1`
 - **Content-Type**: `application/json`
@@ -15,28 +15,29 @@ Authorization: Bearer <access_token>
 
 Payload JWT berisi:
 
-| Claim | Tipe | Deskripsi |
-|---|---|---|
-| `user_id` | int | ID user |
-| `role` | string | `super_admin` / `branch_admin` / `cashier` |
-| `branch_id` | int | Cabang tempat user terdaftar |
+| Claim       | Tipe   | Deskripsi                                  |
+| ----------- | ------ | ------------------------------------------ |
+| `user_id`   | int    | ID user                                    |
+| `role`      | string | `super_admin` / `branch_admin` / `cashier` |
+| `branch_id` | int    | Cabang tempat user terdaftar               |
 
 **Kode error umum:**
 
-| Kode | Keterangan |
-|---|---|
-| `200` | Sukses |
-| `201` | Berhasil dibuat |
-| `400` | Request body invalid / validasi gagal |
+| Kode  | Keterangan                                  |
+| ----- | ------------------------------------------- |
+| `200` | Sukses                                      |
+| `201` | Berhasil dibuat                             |
+| `400` | Request body invalid / validasi gagal       |
 | `401` | Token tidak ada / tidak valid / kedaluwarsa |
-| `403` | Role tidak berhak mengakses endpoint |
-| `404` | Resource tidak ditemukan |
-| `409` | Konflik data |
-| `500` | Internal server error |
+| `403` | Role tidak berhak mengakses endpoint        |
+| `404` | Resource tidak ditemukan                    |
+| `409` | Konflik data                                |
+| `500` | Internal server error                       |
 
 ## Format Response
 
 **Sukses:**
+
 ```json
 {
   "success": true,
@@ -46,6 +47,7 @@ Payload JWT berisi:
 ```
 
 **Gagal:**
+
 ```json
 {
   "success": false,
@@ -58,18 +60,20 @@ Payload JWT berisi:
 ## Schemas
 
 ### User
+
 ```json
 {
   "id": 1,
   "branch_id": 1,
   "name": "Kasir Satu",
-  "email": "kasir1@bqrder.com",
+  "email": "kasir1@qrdigo.com",
   "role": "cashier",
   "created_at": "2026-09-15T10:00:00Z"
 }
 ```
 
 ### AuthResponse
+
 ```json
 {
   "access_token": "string",
@@ -80,13 +84,14 @@ Payload JWT berisi:
     "id": 1,
     "branch_id": 1,
     "name": "Super Admin",
-    "email": "admin@bqrder.com",
+    "email": "admin@qrdigo.com",
     "role": "super_admin"
   }
 }
 ```
 
 ### Table
+
 ```json
 {
   "id": 1,
@@ -100,6 +105,7 @@ Payload JWT berisi:
 ```
 
 ### Category
+
 ```json
 {
   "id": 1,
@@ -111,6 +117,7 @@ Payload JWT berisi:
 ```
 
 ### Product
+
 ```json
 {
   "id": 1,
@@ -128,6 +135,7 @@ Payload JWT berisi:
 ```
 
 ### Order
+
 ```json
 {
   "id": 1,
@@ -183,17 +191,20 @@ Payload JWT berisi:
 ## Auth Module `/auth`
 
 ### POST `/auth/login`
+
 Login untuk Admin/Kasir.
 
 **Request:**
+
 ```json
 {
-  "email": "admin@bqrder.com",
+  "email": "admin@qrdigo.com",
   "password": "admin123"
 }
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -207,7 +218,7 @@ Login untuk Admin/Kasir.
       "id": 1,
       "branch_id": 1,
       "name": "Super Admin",
-      "email": "admin@bqrder.com",
+      "email": "admin@qrdigo.com",
       "role": "super_admin"
     }
   }
@@ -218,9 +229,11 @@ Login untuk Admin/Kasir.
 **Error 401:** `{ "success": false, "message": "branch is inactive" }`
 
 ### POST `/auth/refresh`
+
 Menukar refresh token dengan access token (dan refresh token baru).
 
 **Request:**
+
 ```json
 {
   "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
@@ -234,11 +247,13 @@ Menukar refresh token dengan access token (dan refresh token baru).
 ## Public Module `/public` — Tanpa Autentikasi
 
 ### GET `/public/table/:qr_token`
+
 Validasi QR token meja.
 
 **Path Params:** `qr_token` — token unik meja.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -258,15 +273,17 @@ Validasi QR token meja.
 **Error 404:** QR token tidak valid atau meja nonaktif.
 
 ### GET `/public/menu?qr_token=...`
+
 Mengambil daftar kategori dan produk aktif pada meja/cabang.
 
 **Query Params:**
 
-| Param | Tipe | Wajib | Deskripsi |
-|---|---|---|---|
-| `qr_token` | string | ya | QR token meja untuk menentukan cabang |
+| Param      | Tipe   | Wajib | Deskripsi                             |
+| ---------- | ------ | ----- | ------------------------------------- |
+| `qr_token` | string | ya    | QR token meja untuk menentukan cabang |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -292,15 +309,17 @@ Mengambil daftar kategori dan produk aktif pada meja/cabang.
 ```
 
 ### POST `/public/orders?qr_token=...`
+
 Checkout / membuat pesanan baru sebagai pelanggan.
 
 **Query Params:**
 
-| Param | Tipe | Wajib | Deskripsi |
-|---|---|---|---|
-| `qr_token` | string | ya | QR token meja (penentu cabang & meja) |
+| Param      | Tipe   | Wajib | Deskripsi                             |
+| ---------- | ------ | ----- | ------------------------------------- |
+| `qr_token` | string | ya    | QR token meja (penentu cabang & meja) |
 
 **Request:**
+
 ```json
 {
   "customer_name": "Budi",
@@ -315,6 +334,7 @@ Checkout / membuat pesanan baru sebagai pelanggan.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -339,6 +359,7 @@ Checkout / membuat pesanan baru sebagai pelanggan.
 **Error 400:** produk tidak ditemukan / produk nonaktif / `items` kosong.
 
 ### GET `/public/orders/:order_number`
+
 Monitoring status pesanan pelanggan.
 
 **Path Params:** `order_number` — contoh: `ORD-20260915-001`.
@@ -356,21 +377,35 @@ Monitoring status pesanan pelanggan.
 ### Meja (Tables)
 
 #### GET `/admin/tables`
+
 Mengambil daftar semua meja.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
   "message": "tables retrieved",
-  "data": [ { "id": 1, "branch_id": 1, "table_number": "T-01", "qr_token": "...", "qr_link": "...", "capacity": 4, "is_active": true } ]
+  "data": [
+    {
+      "id": 1,
+      "branch_id": 1,
+      "table_number": "T-01",
+      "qr_token": "...",
+      "qr_link": "...",
+      "capacity": 4,
+      "is_active": true
+    }
+  ]
 }
 ```
 
 #### POST `/admin/tables`
+
 Membuat meja baru (QR token dibuat otomatis).
 
 **Request:**
+
 ```json
 {
   "table_number": "T-01",
@@ -382,9 +417,11 @@ Membuat meja baru (QR token dibuat otomatis).
 **Response 201:** Struktur Table, termasuk `qr_link`.
 
 #### PUT `/admin/tables/:id`
+
 Mengupdate meja berdasarkan ID.
 
 **Request:**
+
 ```json
 {
   "table_number": "T-01 A",
@@ -396,17 +433,21 @@ Mengupdate meja berdasarkan ID.
 > Semua field opsional (partial update).
 
 #### DELETE `/admin/tables/:id`
+
 Menghapus meja.
 
 **Response 200:**
+
 ```json
 { "success": true, "message": "table deleted successfully" }
 ```
 
 #### GET `/admin/tables/:id/qr`
+
 Membuat & mengembalikan QR token/link unik meja.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -423,12 +464,15 @@ Membuat & mengembalikan QR token/link unik meja.
 ### Kategori (Categories)
 
 #### GET `/admin/categories`
+
 Daftar kategori.
 
 #### POST `/admin/categories`
+
 Buat kategori.
 
 **Request:**
+
 ```json
 {
   "name": "Minuman",
@@ -437,30 +481,35 @@ Buat kategori.
 ```
 
 #### PUT `/admin/categories/:id`
+
 Update kategori (partial).
 
 **Request:**
+
 ```json
 { "name": "Minuman Dingin", "description": "Minuman ber-es" }
 ```
 
 #### DELETE `/admin/categories/:id`
+
 Hapus kategori. Gagal (`400`) jika masih dipakai produk.
 
 ### Produk (Products)
 
 #### GET `/admin/products`
+
 Daftar produk pada cabang (paginated).
 
 **Query Params:**
 
-| Param | Tipe | Opsional | Deskripsi |
-|---|---|---|---|
-| `page` | int | ya | Halaman, mulai `1` (default) |
-| `limit` | int | ya | Jumlah per halaman, `1-100` (default `10`) |
-| `branch_id` | int | ya | Hanya untuk super_admin, override cabang |
+| Param       | Tipe | Opsional | Deskripsi                                  |
+| ----------- | ---- | -------- | ------------------------------------------ |
+| `page`      | int  | ya       | Halaman, mulai `1` (default)               |
+| `limit`     | int  | ya       | Jumlah per halaman, `1-100` (default `10`) |
+| `branch_id` | int  | ya       | Hanya untuk super_admin, override cabang   |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -473,9 +522,11 @@ Daftar produk pada cabang (paginated).
 ```
 
 #### POST `/admin/products`
+
 Buat produk baru.
 
 **Request:**
+
 ```json
 {
   "category_id": 1,
@@ -490,9 +541,11 @@ Buat produk baru.
 **Error 400:** kategori tidak ditemukan.
 
 #### PUT `/admin/products/:id`
+
 Update produk (partial).
 
 **Request:**
+
 ```json
 {
   "category_id": 1,
@@ -504,16 +557,18 @@ Update produk (partial).
 ```
 
 #### DELETE `/admin/products/:id`
+
 Hapus produk. Gagal (`400`) jika masih dipakai di `order_items`.
 
 #### POST `/admin/products/:id/image`
+
 Upload gambar produk.
 
 **Content-Type:** `multipart/form-data`
 
-| Field | Tipe | Wajib | Deskripsi |
-|---|---|---|---|
-| `image` | file | ya | Format: `jpg`, `jpeg`, `png`, `webp`; maks 5 MB |
+| Field   | Tipe | Wajib | Deskripsi                                       |
+| ------- | ---- | ----- | ----------------------------------------------- |
+| `image` | file | ya    | Format: `jpg`, `jpeg`, `png`, `webp`; maks 5 MB |
 
 **Response 200:** Struktur Product dengan `image_url` terisi.
 
@@ -522,21 +577,23 @@ Upload gambar produk.
 ### Laporan Penjualan (Reports)
 
 #### GET `/admin/reports/sales?period=...`
+
 Ringkasan penjualan.
 
 **Query Params:**
 
-| Param | Tipe | Opsional | Deskripsi |
-|---|---|---|---|
-| `period` | string | ya | `daily` (default) atau `monthly` |
-| `start_date` | string | ya | Format `YYYY-MM-DD` (custom range) |
-| `end_date` | string | ya | Format `YYYY-MM-DD` (custom range) |
+| Param        | Tipe   | Opsional | Deskripsi                          |
+| ------------ | ------ | -------- | ---------------------------------- |
+| `period`     | string | ya       | `daily` (default) atau `monthly`   |
+| `start_date` | string | ya       | Format `YYYY-MM-DD` (custom range) |
+| `end_date`   | string | ya       | Format `YYYY-MM-DD` (custom range) |
 
 - Jika `period=daily` → ringkasan hari ini.
 - Jika `period=monthly` → ringkasan bulan ini.
 - Jika diberikan `start_date` & `end_date` → laporan lengkap rentang tanggal.
 
 **Response 200 (period=daily/monthly):**
+
 ```json
 {
   "success": true,
@@ -553,6 +610,7 @@ Ringkasan penjualan.
 ```
 
 **Response 200 (custom range):**
+
 ```json
 {
   "success": true,
@@ -573,42 +631,52 @@ Ringkasan penjualan.
       { "date": "2026-09-01", "total_orders": 10, "total_revenue": 500000 }
     ],
     "top_products": [
-      { "product_id": 1, "product_name": "Nasi Goreng", "total_sold": 30, "total_revenue": 750000 }
+      {
+        "product_id": 1,
+        "product_name": "Nasi Goreng",
+        "total_sold": 30,
+        "total_revenue": 750000
+      }
     ]
   }
 }
 ```
 
 #### GET `/admin/reports/sales/daily?date=YYYY-MM-DD`
+
 Ringkasan penjualan harian spesifik. Tanpa `date` → hari ini.
 
 **Query Params:**
 
-| Param | Tipe | Opsional | Deskripsi |
-|---|---|---|---|
-| `date` | string | ya | Format `YYYY-MM-DD` |
+| Param  | Tipe   | Opsional | Deskripsi           |
+| ------ | ------ | -------- | ------------------- |
+| `date` | string | ya       | Format `YYYY-MM-DD` |
 
 ### User / Kasir
 
 #### POST `/admin/users`
+
 Registrasi akun Kasir baru.
 
 **Rule per role:**
+
 - **super_admin**: bisa membuat `branch_admin` atau `cashier` untuk cabang mana pun.
 - **branch_admin**: hanya bisa membuat `cashier` untuk cabangnya sendiri.
 
 **Request:**
+
 ```json
 {
   "branch_id": 1,
   "name": "Kasir Satu",
-  "email": "kasir1@bqrder.com",
+  "email": "kasir1@qrdigo.com",
   "password": "kasir123",
   "role": "cashier"
 }
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -617,7 +685,7 @@ Registrasi akun Kasir baru.
     "id": 2,
     "branch_id": 1,
     "name": "Kasir Satu",
-    "email": "kasir1@bqrder.com",
+    "email": "kasir1@qrdigo.com",
     "role": "cashier"
   }
 }
@@ -626,22 +694,26 @@ Registrasi akun Kasir baru.
 **Error 400:** email sudah terdaftar, role tidak valid, tidak boleh membuat `super_admin`.
 
 #### GET `/admin/users`
+
 Daftar semua user (branch_admin hanya melihat user cabangnya).
 
 #### PUT `/admin/users/:id`
+
 Update nama, email, role, dan opsional password.
 
 **Request:**
+
 ```json
 {
   "name": "Kasir Satu Updated",
-  "email": "kasir1@bqrder.com",
+  "email": "kasir1@qrdigo.com",
   "password": "kasirbaru123",
   "role": "cashier"
 }
 ```
 
 **Rule per role:**
+
 - **super_admin**: bisa update user cabang mana pun, tidak bisa menetapkan role `super_admin`.
 - **branch_admin**: hanya bisa update `cashier` dalam cabangnya sendiri.
 
@@ -650,29 +722,34 @@ Update nama, email, role, dan opsional password.
 ### Branch (Khusus Super Admin)
 
 #### GET `/admin/branches`
+
 Daftar semua cabang.
 
 **Role:** `super_admin` saja.
 
 #### POST `/admin/branches`
+
 Buat cabang baru.
 
 **Request:**
+
 ```json
 {
-  "name": "bqrder Cabang Bandung",
+  "name": "qrdigo Cabang Bandung",
   "address": "Jl. Braga No. 10, Bandung",
   "phone": "022-1234567"
 }
 ```
 
 #### PUT `/admin/branches/:id`
+
 Update cabang (partial).
 
 **Request:**
+
 ```json
 {
-  "name": "bqrder Cabang Bandung",
+  "name": "qrdigo Cabang Bandung",
   "address": "Jl. Braga No. 10, Bandung",
   "phone": "022-1234567",
   "is_active": true
@@ -684,9 +761,11 @@ Update cabang (partial).
 ## POS Module `/pos` — Auth + Role `super_admin`, `branch_admin`, `cashier`
 
 ### GET `/pos/orders`
+
 Mengambil daftar semua pesanan aktif (`pending` dan `processing`) pada cabang.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -711,9 +790,11 @@ Mengambil daftar semua pesanan aktif (`pending` dan `processing`) pada cabang.
 ```
 
 ### PUT `/pos/orders/:id/status`
+
 Mengubah status pesanan.
 
 **Request:**
+
 ```json
 {
   "status": "processing"
@@ -723,15 +804,18 @@ Mengubah status pesanan.
 Nilai `status` yang diterima: `pending`, `processing`, `completed`, `cancelled`.
 
 **Validasi:**
+
 - Order yang sudah `cancelled` atau `completed` tidak dapat diubah.
 - Order berstatus `paid` tidak dapat dibatalkan.
 
 **Response 200:** Struktur Order lengkap.
 
 ### POST `/pos/orders/:id/pay`
+
 Konfirmasi transaksi pembayaran di kasir.
 
 **Request:**
+
 ```json
 {
   "payment_method": "cash",
@@ -742,6 +826,7 @@ Konfirmasi transaksi pembayaran di kasir.
 `payment_method` default `cash`. `amount_paid` untuk referensi (belum dihitung kembalian).
 
 **Efek:**
+
 - Status → `completed`, payment_status → `paid`.
 - Stok produk dikurangi sesuai jumlah item.
 - Gagal (`400`) jika stok tidak cukup.
@@ -749,9 +834,11 @@ Konfirmasi transaksi pembayaran di kasir.
 **Response 200:** Struktur Order lengkap.
 
 ### POST `/pos/orders/direct`
+
 Buat pesanan manual dari kasir (walk-in / takeaway).
 
 **Request:**
+
 ```json
 {
   "table_id": 1,
@@ -772,9 +859,11 @@ Buat pesanan manual dari kasir (walk-in / takeaway).
 ## Lainnya
 
 ### GET `/health`
+
 Health check server.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -783,6 +872,7 @@ Health check server.
 ```
 
 ### GET `/uploads/products/:filename`
+
 Akses file gambar produk (statis).
 
 ---
@@ -790,21 +880,24 @@ Akses file gambar produk (statis).
 ## Contoh Lengkap — Alur End-to-End
 
 **1. Login super admin**
+
 ```bash
 curl -X POST $BASE/api/v1/auth/login -H "Content-Type: application/json" \
-  -d '{"email":"admin@bqrder.com","password":"admin123"}'
+  -d '{"email":"admin@qrdigo.com","password":"admin123"}'
 # simpan access_token
 ```
 
 **2. Buat cabang baru**
+
 ```bash
 curl -X POST $BASE/api/v1/admin/branches -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"bqrder Cabang Bandung","address":"Jl. Braga No. 10","phone":"022-1234567"}'
+  -d '{"name":"qrdigo Cabang Bandung","address":"Jl. Braga No. 10","phone":"022-1234567"}'
 # catat branch_id
 ```
 
 **3. Buat kategori & produk di cabang tersebut**
+
 ```bash
 curl -X POST "$BASE/api/v1/admin/categories?branch_id=2" -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"name":"Makanan","description":"Menu utama"}'
@@ -815,6 +908,7 @@ curl -X POST "$BASE/api/v1/admin/products?branch_id=2" -H "Authorization: Bearer
 ```
 
 **4. Buat meja & dapatkan qr_token**
+
 ```bash
 curl -X POST "$BASE/api/v1/admin/tables?branch_id=2" -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"table_number":"T-01","capacity":4}'
@@ -822,6 +916,7 @@ curl -X POST "$BASE/api/v1/admin/tables?branch_id=2" -H "Authorization: Bearer $
 ```
 
 **5. Pelanggan scan QR & checkout**
+
 ```bash
 curl -X POST "$BASE/api/v1/public/orders?qr_token=$QR" -H "Content-Type: application/json" \
   -d '{"customer_name":"Budi","items":[{"product_id":1,"quantity":2}]}'
@@ -829,6 +924,7 @@ curl -X POST "$BASE/api/v1/public/orders?qr_token=$QR" -H "Content-Type: applica
 ```
 
 **6. Kasir proses & bayar**
+
 ```bash
 # ubah status ke processing
 curl -X PUT $BASE/api/v1/pos/orders/$ORDER_ID/status -H "Authorization: Bearer $TOKEN" \
@@ -840,6 +936,7 @@ curl -X POST $BASE/api/v1/pos/orders/$ORDER_ID/pay -H "Authorization: Bearer $TO
 ```
 
 **7. Pelanggan cek status**
+
 ```bash
 curl $BASE/api/v1/public/orders/ORD-20260915-001
 ```
@@ -848,21 +945,21 @@ curl $BASE/api/v1/public/orders/ORD-20260915-001
 
 ## Kode Error Per Endpoint
 
-| Endpoint | Error 400 | Error 401 | Error 403 | Error 404 |
-|---|---|---|---|---|
-| `POST /auth/login` | — | email/password salah, branch nonaktif | — | — |
-| `POST /auth/refresh` | body invalid | refresh token invalid | — | user tidak ditemukan |
-| `GET /public/table/:qr_token` | — | — | — | QR tidak valid / meja nonaktif |
-| `GET /public/menu` | — | — | — | QR tidak valid |
-| `POST /public/orders` | produk tidak valid, items kosong | — | — | QR tidak valid |
-| `GET /public/orders/:order_number` | — | — | — | order tidak ditemukan |
-| `GET/POST/PUT/DELETE /admin/tables*` | body invalid | token invalid | role bukan admin | ID tidak ditemukan |
-| `/admin/categories*` | kategori dipakai produk (DELETE) | token invalid | role bukan admin | ID tidak ditemukan |
-| `/admin/products*` | kategori tidak ada, file invalid | token invalid | role bukan admin | ID tidak ditemukan |
-| `GET /admin/reports/sales*` | format tanggal salah | token invalid | role bukan admin | — |
-| `POST/PUT /admin/users` | email terdaftar, role invalid | token invalid | akses lintas cabang, role terlarang | user/branch tidak ada |
-| `/admin/branches*` | body invalid | token invalid | bukan super_admin | ID tidak ditemukan |
-| `GET /pos/orders` | — | token invalid | bukan admin/kasir | — |
-| `PUT /pos/orders/:id/status` | status invalid, order selesai/dibatalkan | token invalid | bukan admin/kasir | ID tidak ditemukan |
-| `POST /pos/orders/:id/pay` | stok tidak cukup, sudah dibayar | token invalid | bukan admin/kasir | ID tidak ditemukan |
-| `POST /pos/orders/direct` | produk invalid, items kosong | token invalid | bukan admin/kasir | table dibutuhkan |
+| Endpoint                             | Error 400                                | Error 401                             | Error 403                           | Error 404                      |
+| ------------------------------------ | ---------------------------------------- | ------------------------------------- | ----------------------------------- | ------------------------------ |
+| `POST /auth/login`                   | —                                        | email/password salah, branch nonaktif | —                                   | —                              |
+| `POST /auth/refresh`                 | body invalid                             | refresh token invalid                 | —                                   | user tidak ditemukan           |
+| `GET /public/table/:qr_token`        | —                                        | —                                     | —                                   | QR tidak valid / meja nonaktif |
+| `GET /public/menu`                   | —                                        | —                                     | —                                   | QR tidak valid                 |
+| `POST /public/orders`                | produk tidak valid, items kosong         | —                                     | —                                   | QR tidak valid                 |
+| `GET /public/orders/:order_number`   | —                                        | —                                     | —                                   | order tidak ditemukan          |
+| `GET/POST/PUT/DELETE /admin/tables*` | body invalid                             | token invalid                         | role bukan admin                    | ID tidak ditemukan             |
+| `/admin/categories*`                 | kategori dipakai produk (DELETE)         | token invalid                         | role bukan admin                    | ID tidak ditemukan             |
+| `/admin/products*`                   | kategori tidak ada, file invalid         | token invalid                         | role bukan admin                    | ID tidak ditemukan             |
+| `GET /admin/reports/sales*`          | format tanggal salah                     | token invalid                         | role bukan admin                    | —                              |
+| `POST/PUT /admin/users`              | email terdaftar, role invalid            | token invalid                         | akses lintas cabang, role terlarang | user/branch tidak ada          |
+| `/admin/branches*`                   | body invalid                             | token invalid                         | bukan super_admin                   | ID tidak ditemukan             |
+| `GET /pos/orders`                    | —                                        | token invalid                         | bukan admin/kasir                   | —                              |
+| `PUT /pos/orders/:id/status`         | status invalid, order selesai/dibatalkan | token invalid                         | bukan admin/kasir                   | ID tidak ditemukan             |
+| `POST /pos/orders/:id/pay`           | stok tidak cukup, sudah dibayar          | token invalid                         | bukan admin/kasir                   | ID tidak ditemukan             |
+| `POST /pos/orders/direct`            | produk invalid, items kosong             | token invalid                         | bukan admin/kasir                   | table dibutuhkan               |

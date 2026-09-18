@@ -44,7 +44,7 @@ func Load() *Config {
 		DBPort:           getEnv("DB_PORT", "5432"),
 		DBUser:           getEnv("DB_USER", "postgres"),
 		DBPassword:       getEnv("DB_PASSWORD", ""),
-		DBName:           getEnv("DB_NAME", "bqrder"),
+		DBName:           getEnv("DB_NAME", "qrdigo"),
 		DBSSLMode:        getEnv("DB_SSLMODE", "disable"),
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
 		JWTRefreshSecret: getEnv("JWT_REFRESH_SECRET", "your-refresh-secret-key"),

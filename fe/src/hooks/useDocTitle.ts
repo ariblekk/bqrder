@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect } from "react";
 
 export function useDocTitle(title?: string) {
   useEffect(() => {
-    document.title = title ? `${title} | bqrder` : 'bqrder'
-  }, [title])
+    document.title = title ? `${title} | qrdigo` : "qrdigo";
+  }, [title]);
 }
