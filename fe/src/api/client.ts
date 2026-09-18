@@ -1,6 +1,6 @@
 import type { AuthData, Envelope } from './types'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+export const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 const AUTH_KEY = 'bqrder_auth'
 const BRANCH_KEY = 'bqrder_branch'
 

@@ -7,6 +7,7 @@ import Branches from './pages/Branches'
 import Categories from './pages/Categories'
 import Checkout from './pages/Checkout'
 import Dashboard from './pages/Dashboard'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Menu from './pages/Menu'
 import OrderStatus from './pages/OrderStatus'
@@ -19,8 +20,8 @@ import Users from './pages/Users'
 
 function Home() {
   const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
-  return <Navigate to={user.role === 'cashier' ? '/pos' : '/admin'} replace />
+  if (user) return <Navigate to={user.role === 'cashier' ? '/pos' : '/admin'} replace />
+  return <Landing />
 }
 
 const router = createBrowserRouter([

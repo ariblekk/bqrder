@@ -35,6 +35,7 @@ export interface Branch {
 export interface Table {
   id: number
   branch_id: number
+  branch_name?: string
   table_number: string
   qr_token: string
   qr_link: string
@@ -86,6 +87,7 @@ export interface OrderItem {
 export interface Order {
   id: number
   branch_id: number
+  branch_name?: string
   order_number: string
   table_id?: number
   table_number?: string
@@ -106,6 +108,8 @@ export interface MenuProduct {
   price: number
   stock: number
   image_url?: string
+  total_sold?: number
+  total_revenue?: number
 }
 
 export interface MenuCategory {

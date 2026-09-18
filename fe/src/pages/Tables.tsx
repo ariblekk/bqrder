@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import { ExternalLink, MoreHorizontal, Pencil, Power, Printer } from 'lucide-react'
+import { Download, ExternalLink, MoreHorizontal, Pencil, Power, Printer } from 'lucide-react'
 import { get, post, put } from '../api/client'
 import type { Table } from '../api/types'
 import { QrImage } from '../components/QrImage'
@@ -9,6 +9,7 @@ import {
   Button,
   DataTable,
   Dialog,
+  DialogFooter,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -219,11 +220,28 @@ export default function Tables() {
         onOpenChange={(o) => {
           if (!o) setQrTarget(null)
         }}
-        title="Cetak QR Meja"
-        description={qrTarget ? `QR untuk meja ${qrTarget.table_number}.` : ''}
+        title={`Cetak QR Meja ${qrTarget?.table_number}`}
+        contentClassName="sm:max-w-xl"
       >
         <div className="flex flex-col items-center gap-4">
-          {qrTarget && <QrImage value={qrTarget.qr_link} onData={setQrUrl} />}
+          {qrTarget && <QrImage value={qrTarget.qr_link} size={240} onData={setQrUrl} />}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            disabled={!qrUrl}
+            onClick={() => {
+              if (qrTarget && qrUrl) {
+                const a = document.createElement('a')
+                a.href = qrUrl
+                a.download = `qr-meja-${qrTarget.table_number}.png`
+                a.click()
+              }
+            }}
+          >
+            <Download />
+            Download
+          </Button>
           <Button
             disabled={!qrUrl}
             onClick={() => {
@@ -236,7 +254,7 @@ export default function Tables() {
             <Printer />
             Cetak
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
 
       <DataTable

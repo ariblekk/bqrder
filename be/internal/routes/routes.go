@@ -13,6 +13,7 @@ import (
 	"be/config"
 	"be/internal/handlers"
 	"be/internal/middleware"
+	"be/internal/realtime"
 	"be/internal/repositories/postgres"
 	"be/internal/usecases"
 	bqrjwt "be/pkg/jwt"
@@ -66,14 +67,15 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	productUseCase := usecases.NewProductUseCase(productRepo, categoryRepo, cfg)
 	orderUseCase := usecases.NewOrderUseCase(orderRepo, productRepo, tableRepo, store)
 	reportUseCase := usecases.NewReportUseCase(orderRepo)
-	publicUseCase := usecases.NewPublicUseCase(categoryRepo, productRepo, tableRepo, orderUseCase, cfg.FRONTEND_URL)
+	publicUseCase := usecases.NewPublicUseCase(categoryRepo, productRepo, tableRepo, branchRepo, orderUseCase, cfg.FRONTEND_URL)
 	auditUseCase := usecases.NewAuditUseCase(auditRepo)
 
 	// ---- Handlers ----
+	hub := realtime.NewHub()
 	authHandler := handlers.NewAuthHandler(authUseCase, auditUseCase)
 	adminHandler := handlers.NewAdminHandler(branchUseCase, tableUseCase, categoryUseCase, productUseCase, reportUseCase, auditUseCase)
-	posHandler := handlers.NewPOSHandler(orderUseCase, productUseCase, branchUseCase, auditUseCase)
-	publicHandler := handlers.NewPublicHandler(publicUseCase)
+	posHandler := handlers.NewPOSHandler(orderUseCase, productUseCase, branchUseCase, auditUseCase, hub)
+	publicHandler := handlers.NewPublicHandler(publicUseCase, hub)
 
 	api := router.Group("/api/v1")
 
@@ -135,6 +137,8 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	pos.Use(middleware.Auth(jwtManager))
 	pos.Use(middleware.RequireRoles("super_admin", "branch_admin", "cashier"))
 	{
+		pos.GET("/events", posHandler.StreamEvents)
+		pos.GET("/branch", posHandler.GetCurrentBranch)
 		pos.GET("/orders", posHandler.ListTodayOrders)
 		pos.GET("/products", posHandler.ListProducts)
 		pos.PUT("/orders/:id/status", posHandler.UpdateOrderStatus)

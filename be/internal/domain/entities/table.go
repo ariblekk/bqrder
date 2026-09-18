@@ -27,6 +27,7 @@ type UpdateTableRequest struct {
 type TableDetailResponse struct {
 	ID          int    `json:"id"`
 	BranchID    int    `json:"branch_id"`
+	BranchName  string `json:"branch_name"`
 	TableNumber string `json:"table_number"`
 	QRToken     string `json:"qr_token"`
 	QRLink      string `json:"qr_link"`

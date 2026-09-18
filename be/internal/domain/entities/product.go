@@ -36,12 +36,19 @@ type UpdateProductRequest struct {
 }
 
 type MenuProduct struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
-	ImageURL    string  `json:"image_url"`
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	Description  string  `json:"description"`
+	Price        float64 `json:"price"`
+	Stock        int     `json:"stock"`
+	ImageURL     string  `json:"image_url"`
+	TotalSold    int     `json:"total_sold"`
+	TotalRevenue float64 `json:"total_revenue"`
+}
+
+type ProductSales struct {
+	TotalSold    int     `json:"total_sold"`
+	TotalRevenue float64 `json:"total_revenue"`
 }
 
 type MenuCategory struct {

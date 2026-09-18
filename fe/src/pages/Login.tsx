@@ -3,10 +3,12 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { ApiError, get } from '../api/client'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { useDocTitle } from '../hooks/useDocTitle'
 
 export default function Login() {
   const { user, login, setup } = useAuth()
   const nav = useNavigate()
+  useDocTitle('Login')
   const [bootstrap, setBootstrap] = useState<boolean | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')

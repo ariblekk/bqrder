@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { get, post } from '../api/client'
+import { subscribeOrderEvents } from '../api/sse'
+import type { Branch, Order, Product } from '../api/types'
 import OrderDetailDialog, { fmtRp } from '../components/pos/OrderDetailDialog'
 import PosHeader from '../components/pos/PosHeader'
 import ReceiptDialog from '../components/pos/ReceiptDialog'
@@ -21,7 +23,7 @@ import {
 } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
-import type { Order, Product } from '../api/types'
+import { cn } from '../lib/utils'
 
 interface CartLine {
   product: Product
@@ -42,7 +44,9 @@ export default function Pos() {
   const nav = useNavigate()
   const { data: orders, reload } = useAsync(() => get<Order[]>('/pos/orders'), [])
   const { data: prods } = useAsync(() => get<Product[]>('/pos/products?limit=100'), [])
+  const { data: branch } = useAsync(() => get<Branch>('/pos/branch'), [])
   const [search, setSearch] = useState('')
+  const [cat, setCat] = useState('Semua')
   const [cart, setCart] = useState<CartLine[]>([])
   const [customer, setCustomer] = useState('')
   const [busy, setBusy] = useState(false)
@@ -57,6 +61,10 @@ export default function Pos() {
     return () => clearInterval(t)
   }, [reload])
 
+  useEffect(() => {
+    return subscribeOrderEvents(() => reload())
+  }, [reload])
+
   const allOrders = orders?.data ?? []
   const needsAttention = allOrders.filter(
     (o) => (o.payment_status === 'unpaid' && o.status !== 'cancelled') || (o.payment_status === 'paid' && o.status === 'pending'),
@@ -64,7 +72,8 @@ export default function Pos() {
   const products = prods?.data.filter((p) => p.is_active) ?? []
   const q = search.trim().toLowerCase()
   const filtered = q ? products.filter((p) => p.name.toLowerCase().includes(q)) : products
-  const categories = [...new Set(filtered.map((p) => p.category_name || 'Lainnya'))]
+  const allCategories = ['Semua', ...new Set(products.map((p) => p.category_name || 'Lainnya'))]
+  const shown = cat === 'Semua' ? filtered : filtered.filter((p) => (p.category_name || 'Lainnya') === cat)
   const total = cart.reduce((s, l) => s + l.product.price * l.qty, 0)
   const itemCount = cart.reduce((s, l) => s + l.qty, 0)
 
@@ -113,7 +122,7 @@ export default function Pos() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden p-4">
       <PosHeader
-        title="bqrder — POS"
+        title={`${branch?.data?.name || 'bqrder'} — POS`}
         actions={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -189,54 +198,62 @@ export default function Pos() {
       />
       {(done) && <p className="mb-2 text-sm font-medium text-destructive">{done}</p>}
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:grid-rows-[minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)]">
         <section className="flex min-h-0 flex-col gap-3">
           <h3 className="text-base font-semibold">Produk</h3>
           <Input placeholder="Cari produk..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            {categories.map((cat) => (
-              <div key={cat} className="mb-3">
-                <p className="mb-2 text-sm font-semibold">{cat}</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-                  {filtered
-                    .filter((p) => (p.category_name || 'Lainnya') === cat)
-                    .map((p) => {
-                      const qty = cart.find((l) => l.product.id === p.id)?.qty ?? 0
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          disabled={p.stock === 0}
-                          onClick={() => addToCart(p)}
-                          className="relative flex h-full flex-col items-stretch gap-1.5 overflow-hidden rounded-lg border p-0 text-left text-sm transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <div className="relative aspect-4/3 w-full shrink-0 bg-muted">
-                            {p.image_url ? (
-                              <img
-                                className="size-full object-cover"
-                                src={p.image_url}
-                                alt={p.name}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-                                No image
-                              </div>
-                            )}
-                            {qty > 0 && <Badge className="absolute top-1 right-1">{qty}</Badge>}
-                          </div>
-                          <div className="flex flex-1 flex-col gap-0.5 p-1.5">
-                            <span className="truncate font-medium">{p.name}</span>
-                            <span className="text-muted-foreground">Rp {p.price.toLocaleString('id-ID')}</span>
-                            <span className="mt-auto text-xs text-muted-foreground">stok {p.stock}</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                </div>
-              </div>
+          <div className="flex shrink-0 gap-1.5 overflow-x-auto">
+            {allCategories.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCat(c)}
+                className={cn(
+                  'shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                  cat === c ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/70',
+                )}
+              >
+                {c}
+              </button>
             ))}
-            {prods && !filtered.length && (
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {shown.map((p) => {
+                const qty = cart.find((l) => l.product.id === p.id)?.qty ?? 0
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={p.stock === 0}
+                    onClick={() => addToCart(p)}
+                    className="relative flex h-full flex-col items-stretch gap-1.5 overflow-hidden rounded-lg border p-0 text-left text-sm transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className="relative aspect-4/3 w-full shrink-0 bg-muted">
+                      {p.image_url ? (
+                        <img
+                          className="size-full object-cover"
+                          src={p.image_url}
+                          alt={p.name}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                          No image
+                        </div>
+                      )}
+                      {qty > 0 && <Badge className="absolute top-1 right-1">{qty}</Badge>}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-0.5 p-1.5">
+                      <span className="truncate font-medium">{p.name}</span>
+                      <span className="text-muted-foreground">Rp {p.price.toLocaleString('id-ID')}</span>
+                      <span className="mt-auto text-xs text-muted-foreground">stok {p.stock}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            {prods && !shown.length && (
               <p className="text-sm text-muted-foreground">Produk tidak ditemukan.</p>
             )}
           </div>
@@ -256,27 +273,34 @@ export default function Pos() {
                 </p>
               </div>
               ) : (
-                <ul className="m-0 flex-1 list-none space-y-1 overflow-y-auto p-0 text-sm">
+                <ul className="m-0 flex-1 list-none divide-y divide-border overflow-y-auto p-0 text-sm">
                   {cart.map((l) => (
-                    <li key={l.product.id} className="flex items-center gap-2">
+                    <li key={l.product.id} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
                       <span className="flex-1">
                         {l.product.name} — Rp {(l.product.price * l.qty).toLocaleString('id-ID')}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => changeQty(l.product.id, -1)}>
-                        −
-                      </Button>
-                      <span className="min-w-4 text-center">{l.qty}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={l.qty >= l.product.stock}
-                        onClick={() => changeQty(l.product.id, 1)}
-                      >
-                        +
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => changeQty(l.product.id, -l.qty)}>
-                        x
-                      </Button>
+                      <div className="flex h-8 items-center gap-1 rounded-full border px-1">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="size-6 rounded-full"
+                          aria-label={`Kurangi ${l.product.name}`}
+                          onClick={() => changeQty(l.product.id, -1)}
+                        >
+                          −
+                        </Button>
+                        <span className="min-w-5 text-center text-sm font-semibold">{l.qty}</span>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="size-6 rounded-full"
+                          disabled={l.qty >= l.product.stock}
+                          aria-label={`Tambah ${l.product.name}`}
+                          onClick={() => changeQty(l.product.id, 1)}
+                        >
+                          +
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>

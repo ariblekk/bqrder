@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal, Power, Trash2 } from 'lucide-react'
-import { del, get, post, put } from '../api/client'
+import { MoreHorizontal, Pencil, Power } from 'lucide-react'
+import { get, post, put } from '../api/client'
 import type { Branch } from '../api/types'
 import { HeaderSearch } from '../components/HeaderSearch'
 import {
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
+  useToast,
 } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 import { usePageTitle } from '../hooks/usePageTitle'
@@ -22,10 +23,11 @@ const empty = { name: '', address: '', phone: '' }
 
 export default function Branches() {
   const { data, err, reload } = useAsync(() => get<Branch[]>('/admin/branches'), [])
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Branch | null>(null)
   const [form, setForm] = useState(empty)
   const [q, setQ] = useState('')
-  const [msg, setMsg] = useState('')
   const [actionErr, setActionErr] = useState('')
   const col = createColumnHelper<Branch>()
 
@@ -33,7 +35,7 @@ export default function Branches() {
     'Cabang',
     <>
       <HeaderSearch onSearch={setQ} placeholder="Cari cabang..." />
-      <Button onClick={() => setOpen(true)}>Tambah Cabang</Button>
+      <Button onClick={() => { setEditing(null); setForm(empty); setOpen(true) }}>Tambah Cabang</Button>
     </>,
   )
 
@@ -56,6 +58,16 @@ export default function Branches() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
+                onClick={() => {
+                  setEditing(b)
+                  setForm({ name: b.name, address: b.address || '', phone: b.phone || '' })
+                  setOpen(true)
+                }}
+              >
+                <Pencil />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={async () => {
                   try {
                     await put<Branch>(`/admin/branches/${b.id}`, { is_active: !b.is_active })
@@ -68,21 +80,6 @@ export default function Branches() {
                 <Power />
                 {b.is_active ? 'Nonaktifkan' : 'Aktifkan'}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={async () => {
-                  if (!confirm(`Hapus cabang "${b.name}"?`)) return
-                  try {
-                    await del(`/admin/branches/${b.id}`)
-                    reload()
-                  } catch (ex) {
-                    setActionErr((ex as Error).message)
-                  }
-                }}
-              >
-                <Trash2 />
-                Hapus
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )
@@ -90,13 +87,23 @@ export default function Branches() {
     }),
   ]
 
-  async function create(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault()
-    await post<Branch>('/admin/branches', form)
-    setForm(empty)
-    setOpen(false)
-    setMsg('Cabang dibuat')
-    reload()
+    try {
+      if (editing) {
+        await put<Branch>(`/admin/branches/${editing.id}`, form)
+        toast('Cabang diperbarui')
+      } else {
+        await post<Branch>('/admin/branches', form)
+        toast('Cabang dibuat')
+      }
+      setEditing(null)
+      setForm(empty)
+      setOpen(false)
+      reload()
+    } catch (ex) {
+      toast((ex as Error).message, { variant: 'error' })
+    }
   }
 
   return (
@@ -104,15 +111,14 @@ export default function Branches() {
       {(err || actionErr) && (
         <p className="text-sm font-medium text-destructive">{err || actionErr}</p>
       )}
-      {msg && <p className="text-sm font-medium text-primary">{msg}</p>}
 
       <Dialog
         open={open}
-        onOpenChange={setOpen}
-        title="Tambah Cabang"
-        description="Data cabang baru bisnis Anda."
+        onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null) }}
+        title={editing ? 'Edit Cabang' : 'Tambah Cabang'}
+        description={editing ? `Perbarui data cabang "${editing.name}".` : 'Data cabang baru bisnis Anda.'}
       >
-        <form className="flex flex-col gap-4" onSubmit={create}>
+        <form className="flex flex-col gap-4" onSubmit={submit}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="branch-name">Nama</Label>
             <Input

@@ -128,6 +128,31 @@ func (r *ProductRepo) ListActiveByBranch(branchID int) ([]entities.Product, erro
 	return products, rows.Err()
 }
 
+func (r *ProductRepo) SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error) {
+	rows, err := r.q.Query(`
+		SELECT oi.product_id, COALESCE(SUM(oi.quantity), 0)::int, COALESCE(SUM(oi.quantity * oi.price), 0)
+		FROM order_items oi
+		JOIN orders o ON o.id = oi.order_id
+		WHERE o.branch_id = $1 AND o.status <> 'cancelled'
+		GROUP BY oi.product_id
+	`, branchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := map[int]entities.ProductSales{}
+	for rows.Next() {
+		var productID int
+		var s entities.ProductSales
+		if err := rows.Scan(&productID, &s.TotalSold, &s.TotalRevenue); err != nil {
+			return nil, err
+		}
+		stats[productID] = s
+	}
+	return stats, rows.Err()
+}
+
 func (r *ProductRepo) Update(product *entities.Product) error {
 	_, err := r.q.Exec(`
 		UPDATE products SET category_id = $1, name = $2, description = $3, price = $4, stock = $5, is_active = $6

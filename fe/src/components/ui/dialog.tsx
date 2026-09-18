@@ -151,6 +151,7 @@ export function Dialog({
   description,
   children,
   trigger,
+  contentClassName,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -158,11 +159,12 @@ export function Dialog({
   description?: string
   children: React.ReactNode
   trigger?: React.ReactNode
+  contentClassName?: string
 }) {
   return (
     <DialogBase open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className={cn("max-h-[85vh] overflow-y-auto", contentClassName)}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

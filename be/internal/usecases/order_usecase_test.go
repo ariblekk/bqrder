@@ -145,6 +145,10 @@ func (f *fakeTableRepo) FindByIDAndBranch(id, branchID int) (*entities.Table, er
 func (f *fakeTableRepo) FindByQRToken(token string) (*entities.Table, error) { return nil, nil }
 func (f *fakeTableRepo) ListByBranch(branchID int) ([]entities.Table, error) { return nil, nil }
 func (f *fakeTableRepo) Update(table *entities.Table) error                  { return nil }
+
+func (f *fakeProductRepo) SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error) {
+	return nil, nil
+}
 func (f *fakeTableRepo) Delete(id int) error                                 { return nil }
 
 type fakeTx struct {

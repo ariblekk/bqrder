@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
-import { Check, ChefHat, Clock3, PackageCheck, XCircle } from 'lucide-react'
+import { ArrowLeft, Check, ChefHat, Clock3, PackageCheck, XCircle } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { get } from '../api/client'
 import type { Order } from '../api/types'
 import { Badge, Button, Card, CardContent, Skeleton } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+import { useDocTitle } from '../hooks/useDocTitle'
 import { cn } from '../lib/utils'
 
 const rupiah = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
@@ -28,6 +29,7 @@ export default function OrderStatus() {
     () => get<Order>(`/public/orders/${orderNumber}`),
     [orderNumber],
   )
+  useDocTitle(data?.data ? `Status ${data.data.order_number}` : 'Status Pesanan')
 
   useEffect(() => {
     const t = setInterval(reload, 5000)
@@ -39,18 +41,33 @@ export default function OrderStatus() {
   const activeIdx =
     o?.status === 'completed' ? 2 : o?.status === 'processing' ? 1 : o?.status === 'pending' ? 0 : -1
   const st = o ? statusTitle[o.status] ?? { title: o.status, sub: '' } : null
+  const count = o?.items.reduce((s, it) => s + it.quantity, 0) ?? 0
 
   return (
-    <div className="min-h-dvh bg-muted/40 pb-24">
-      <header className="pt-10 pb-4 text-center">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          bqrder
-        </p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">Status Pesanan</h1>
-        {o && <p className="mt-1 text-sm text-muted-foreground">{o.order_number}</p>}
+    <div className="min-h-dvh bg-muted/40 pb-28">
+      <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-3">
+          <Button asChild variant="ghost" size="icon" aria-label="Kembali ke menu">
+            <Link to="/menu">
+              <ArrowLeft />
+            </Link>
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {o?.branch_name || 'bqrder'}
+            </p>
+            <h1 className="truncate text-base font-bold">Status Pesanan</h1>
+          </div>
+          {o && (
+            <p className="shrink-0 text-sm font-medium text-muted-foreground">
+              {o.order_number}
+              {o.table_number ? ` · Meja ${o.table_number}` : ''}
+            </p>
+          )}
+        </div>
       </header>
 
-      <main className="mx-auto max-w-xl px-4">
+      <main className="mx-auto w-full max-w-2xl px-4 pt-4">
         {err && <p className="text-sm font-medium text-destructive">{err}</p>}
 
         {!o && !err && (
@@ -155,10 +172,6 @@ export default function OrderStatus() {
                   </div>
                 ))}
                 <div className="flex items-center justify-between pt-3">
-                  <span className="text-sm text-muted-foreground">Total</span>
-                  <strong>{rupiah(o.total_amount)}</strong>
-                </div>
-                <div className="flex items-center justify-between pt-3">
                   <span className="text-sm text-muted-foreground">Pembayaran</span>
                   <Badge
                     variant={o.payment_status === 'paid' ? 'outline' : 'secondary'}
@@ -168,21 +181,29 @@ export default function OrderStatus() {
                     {o.payment_status === 'paid' ? 'Sudah dibayar' : 'Belum dibayar'}
                   </Badge>
                 </div>
+                <p className="flex items-center gap-1.5 pt-3 text-xs text-muted-foreground">
+                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+                  Halaman menyegarkan otomatis setiap 5 detik.
+                </p>
               </CardContent>
             </Card>
-
-            <div className="mt-6 space-y-3">
-              <Button asChild size="lg" className="w-full">
-                <Link to="/menu">Pesan Lagi</Link>
-              </Button>
-              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-                <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
-                Halaman menyegarkan otomatis setiap 5 detik.
-              </p>
-            </div>
           </>
         )}
       </main>
+
+      {o && (
+        <div className="fixed inset-x-0 bottom-4 z-20 px-4">
+          <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-3 rounded-2xl bg-primary px-4 text-primary-foreground shadow-xl">
+            <div className="min-w-0">
+              <p className="text-xs opacity-80">Total ({count} item)</p>
+              <p className="truncate text-lg font-bold leading-tight">{rupiah(o.total_amount)}</p>
+            </div>
+            <Button asChild size="lg" className="h-10 bg-background px-5 text-foreground hover:bg-background/90">
+              <Link to="/menu">Pesan Lagi</Link>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

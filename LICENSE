@@ -1,21 +1,105 @@
-MIT License
+Business Source License 1.1
 
-Copyright (c) 2026 Ari Haryanto
+License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB Corporation Ab.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+-----------------------------------------------------------------------------
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Parameters
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Licensor:             Ari Haryanto
+
+Licensed Work:        bqrder
+                      Sistem Point of Sale (POS) multi-branch untuk
+                      restoran/kafe: pemesanan via QR meja, layar kasir (POS),
+                      dan dashboard admin multi-cabang. REST API (Go + Gin +
+                      PostgreSQL) & Web app (React + Vite + TypeScript).
+                      The Licensed Work is (c) 2026 Ari Haryanto
+                      (with all rights reserved).
+
+Additional Use Grant: You may make production use of the Licensed Work solely
+                      for your own internal business operations, subject to ALL
+                      of the following:
+                        1. You operate no more than one (1) self-hosted
+                           deployment (single database and single running
+                           instance) of the Licensed Work.
+                        2. The deployment is run by and under the control of
+                           you or your organization, on hardware or cloud
+                           infrastructure you lease and operate directly.
+                        3. You do not offer the Licensed Work, or any modified
+                           or derivative version of it, as a managed, hosted,
+                           or software-as-a-service offering to third parties,
+                           whether for a fee or not.
+                      All other production use, including any deployment that
+                      fails any condition above, requires a separate commercial
+                      license from the Licensor.
+
+Change Date:          2030-09-18 (four years from the date the Licensed Work is
+                      first publicly available distributed).
+
+Change License:       Apache License, Version 2.0
+
+-----------------------------------------------------------------------------
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative
+works, redistribute, and make non-production use of the Licensed Work. The
+Licensor may make an Additional Use Grant, above, permitting limited
+production use.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly
+available distribution of a version of the Licensed Work, or of a derivative
+work based on the Licensed Work, whichever comes first, the Licensor hereby
+grants you rights in the Licensed Work under the terms of the Change License,
+and the rights in the non-production and Additional Use Grant conditions above
+terminate.
+
+You may make production use of the Licensed Work, subject to the terms and
+conditions of this license (including the Additional Use Grant and the Terms of
+the license below), provided that each Person (as defined in Section 6) agrees
+to the terms and conditions of this license.
+
+Copyright 2026 Ari Haryanto. All rights reserved.
+Copyright 2017 MariaDB Corporation Ab. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the Licensor nor the names of its contributors may be
+   used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+4. Redistributions of a derivative work based on the Licensed Work must retain
+   the above copyright notice, this list of conditions and the following
+   disclaimer in the documentation and/or other materials provided with the
+   distribution, and must not be licensed under terms that are more
+   restrictive than the terms of this license. A "derivative work" for the
+   purposes of this license is an adaptation of the Licensed Work that
+   constitutes an original work of authorship and is based on the Licensed
+   Work. This license does not cover derivative works based on the Licensed
+   Work before the Change Date.
+
+5. You must not use the Licensed Work for unnecessary, or legally avoidable,
+   licensing fees to the extent permitted by applicable law.
+
+6. "Person" means either (i) an individual, or (ii) a company or other
+   entity.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

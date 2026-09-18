@@ -11,6 +11,7 @@ type PublicUseCase struct {
 	categoryRepo repositories.CategoryRepository
 	productRepo  repositories.ProductRepository
 	tableRepo    repositories.TableRepository
+	branchRepo   repositories.BranchRepository
 	orderUseCase *OrderUseCase
 	frontendURL  string
 }
@@ -19,6 +20,7 @@ func NewPublicUseCase(
 	categoryRepo repositories.CategoryRepository,
 	productRepo repositories.ProductRepository,
 	tableRepo repositories.TableRepository,
+	branchRepo repositories.BranchRepository,
 	orderUseCase *OrderUseCase,
 	frontendURL string,
 ) *PublicUseCase {
@@ -26,6 +28,7 @@ func NewPublicUseCase(
 		categoryRepo: categoryRepo,
 		productRepo:  productRepo,
 		tableRepo:    tableRepo,
+		branchRepo:   branchRepo,
 		orderUseCase: orderUseCase,
 		frontendURL:  frontendURL,
 	}
@@ -40,9 +43,15 @@ func (u *PublicUseCase) ValidateTable(token string) (*entities.TableDetailRespon
 		return nil, errors.New("table is inactive")
 	}
 
+	branchName := ""
+	if branch, err := u.branchRepo.FindByID(table.BranchID); err == nil {
+		branchName = branch.Name
+	}
+
 	return &entities.TableDetailResponse{
 		ID:          table.ID,
 		BranchID:    table.BranchID,
+		BranchName:  branchName,
 		TableNumber: table.TableNumber,
 		QRToken:     table.QRToken,
 		QRLink:      u.frontendURL + "/menu?qr=" + table.QRToken,
@@ -62,6 +71,11 @@ func (u *PublicUseCase) GetMenu(branchID int) ([]entities.MenuCategory, error) {
 		return nil, err
 	}
 
+	stats, err := u.productRepo.SalesStatsByBranch(branchID)
+	if err != nil {
+		stats = map[int]entities.ProductSales{}
+	}
+
 	result := make([]entities.MenuCategory, 0, len(categories))
 	for _, cat := range categories {
 		menuCat := entities.MenuCategory{
@@ -73,13 +87,16 @@ func (u *PublicUseCase) GetMenu(branchID int) ([]entities.MenuCategory, error) {
 
 		for _, p := range products {
 			if p.CategoryID == cat.ID {
+				s := stats[p.ID]
 				menuCat.Products = append(menuCat.Products, entities.MenuProduct{
-					ID:          p.ID,
-					Name:        p.Name,
-					Description: p.Description,
-					Price:       p.Price,
-					Stock:       p.Stock,
-					ImageURL:    p.ImageURL,
+					ID:           p.ID,
+					Name:         p.Name,
+					Description:  p.Description,
+					Price:        p.Price,
+					Stock:        p.Stock,
+					ImageURL:     p.ImageURL,
+					TotalSold:    s.TotalSold,
+					TotalRevenue: s.TotalRevenue,
 				})
 			}
 		}
@@ -113,5 +130,12 @@ func (u *PublicUseCase) CreateOrder(branchID int, req *entities.CreateOrderReque
 }
 
 func (u *PublicUseCase) GetOrderStatus(orderNumber string) (*entities.Order, error) {
-	return u.orderUseCase.GetByOrderNumber(orderNumber)
+	order, err := u.orderUseCase.GetByOrderNumber(orderNumber)
+	if err != nil {
+		return nil, err
+	}
+	if branch, err := u.branchRepo.FindByID(order.BranchID); err == nil {
+		order.BranchName = branch.Name
+	}
+	return order, nil
 }

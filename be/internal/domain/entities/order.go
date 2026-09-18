@@ -48,7 +48,8 @@ type Order struct {
 	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at" db:"updated_at"`
 
-	Items []OrderItem `json:"items,omitempty"`
+	BranchName string      `json:"branch_name,omitempty"`
+	Items      []OrderItem `json:"items,omitempty"`
 }
 
 type OrderItem struct {

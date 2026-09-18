@@ -55,6 +55,7 @@ type ProductRepository interface {
 	ListByBranch(branchID int, limit, offset int) ([]entities.Product, error)
 	CountByBranch(branchID int) (int, error)
 	ListActiveByBranch(branchID int) ([]entities.Product, error)
+	SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error)
 	Update(product *entities.Product) error
 	UpdateImage(id int, imageURL string) error
 	Delete(id int) error

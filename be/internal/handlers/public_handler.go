@@ -8,17 +8,20 @@ import (
 
 	"be/internal/domain/entities"
 	"be/internal/domain/repositories"
+	"be/internal/realtime"
 	"be/internal/usecases"
 	"be/pkg/response"
 )
 
 type PublicHandler struct {
 	publicUseCase *usecases.PublicUseCase
+	hub           *realtime.Hub
 }
 
-func NewPublicHandler(publicUseCase *usecases.PublicUseCase) *PublicHandler {
+func NewPublicHandler(publicUseCase *usecases.PublicUseCase, hub *realtime.Hub) *PublicHandler {
 	return &PublicHandler{
 		publicUseCase: publicUseCase,
+		hub:           hub,
 	}
 }
 
@@ -80,6 +83,7 @@ func (h *PublicHandler) CreateOrder(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
+	h.hub.Publish(order.BranchID, realtime.Event{Type: "order.new", OrderID: order.ID, OrderNumber: order.OrderNumber})
 	response.Created(c, "order created successfully", order)
 }
 

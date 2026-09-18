@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"be/internal/domain/entities"
+	"be/internal/realtime"
 	"be/internal/usecases"
 	"be/pkg/response"
 	"be/pkg/utils"
@@ -16,6 +19,7 @@ type POSHandler struct {
 	productUseCase *usecases.ProductUseCase
 	branchUseCase  *usecases.BranchUseCase
 	audit          *usecases.AuditUseCase
+	hub            *realtime.Hub
 }
 
 func NewPOSHandler(
@@ -23,13 +27,24 @@ func NewPOSHandler(
 	productUseCase *usecases.ProductUseCase,
 	branchUseCase *usecases.BranchUseCase,
 	audit *usecases.AuditUseCase,
+	hub *realtime.Hub,
 ) *POSHandler {
 	return &POSHandler{
 		orderUseCase:   orderUseCase,
 		productUseCase: productUseCase,
 		branchUseCase:  branchUseCase,
 		audit:          audit,
+		hub:            hub,
 	}
+}
+
+func (h *POSHandler) GetCurrentBranch(c *gin.Context) {
+	branch, err := h.branchUseCase.GetByID(getBranchID(c))
+	if err != nil {
+		response.NotFound(c, "branch not found")
+		return
+	}
+	response.Success(c, "branch retrieved", branch)
 }
 
 func (h *POSHandler) ListTodayOrders(c *gin.Context) {
@@ -73,6 +88,7 @@ func (h *POSHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 	logAudit(h.audit, c, "status", "order", id, string(order.Status))
+	h.hub.Publish(getBranchID(c), realtime.Event{Type: "order.status", OrderID: order.ID, OrderNumber: order.OrderNumber})
 	response.Success(c, "order status updated", order)
 }
 
@@ -95,6 +111,7 @@ func (h *POSHandler) PayOrder(c *gin.Context) {
 		return
 	}
 	logAudit(h.audit, c, "pay", "order", id, order.OrderNumber)
+	h.hub.Publish(getBranchID(c), realtime.Event{Type: "order.paid", OrderID: order.ID, OrderNumber: order.OrderNumber})
 	response.Success(c, "payment processed successfully", order)
 }
 
@@ -133,5 +150,45 @@ func (h *POSHandler) CreateDirectOrder(c *gin.Context) {
 		return
 	}
 	logAudit(h.audit, c, "create", "order", order.ID, order.OrderNumber)
+	h.hub.Publish(getBranchID(c), realtime.Event{Type: "order.new", OrderID: order.ID, OrderNumber: order.OrderNumber})
 	response.Created(c, "direct order created successfully", order)
+}
+
+func (h *POSHandler) StreamEvents(c *gin.Context) {
+	branchID := getBranchID(c)
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+	c.Writer.WriteHeader(200)
+
+	ch, unsub := h.hub.Subscribe(branchID)
+	defer unsub()
+
+	write := func(s string) bool {
+		if _, err := c.Writer.WriteString(s); err != nil {
+			return false
+		}
+		c.Writer.Flush()
+		return true
+	}
+
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case ev := <-ch:
+			b, _ := json.Marshal(ev)
+			if !write("data: " + string(b) + "\n\n") {
+				return
+			}
+		case <-heartbeat.C:
+			if !write(": ping\n\n") {
+				return
+			}
+		}
+	}
 }

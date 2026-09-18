@@ -12,7 +12,7 @@ export {
 } from './card'
 export { ConfirmDialog } from './ConfirmDialog'
 export { DataTable } from './DataTable'
-export { Dialog } from './dialog'
+export { Dialog, DialogFooter } from './dialog'
 export {
   DropdownMenu,
   DropdownMenuContent,

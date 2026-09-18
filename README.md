@@ -86,6 +86,14 @@ Buka `http://localhost:3000`. Jika backend bukan di `localhost:8080`, ubah `VITE
 6. Kembali ke **POS** (`/pos`) → pesanan muncul → **Proses** → **Terima pembayaran** (stok otomatis berkurang)
 7. Pelanggan pantau status di halaman order (auto-refresh setiap 5 detik)
 
+## Lisensi
+
+**Business Source License 1.1 (BUSL-1.1)** — lihat file `LICENSE`.
+
+- Self-host **gratis** untuk 1 deployment, dipakai operasional usahamu sendiri (lihat *Additional Use Grant*).
+- Perlu lebih dari 1 project, atau mau nyediain sebagai SaaS/hosted ke pihak lain → butuh lisensi komersial.
+- Setelah **Change Date** (2030-09-18) lisensi berubah otomatis jadi **Apache License 2.0**.
+
 ## Catatan
 
 - Migrasi otomatis hanya dilakukan oleh container Postgres di `docker-compose.yml`. Kalau pakai Supabase → skema sudah jalan manual via SQL Editor.
