@@ -1,9 +1,22 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
+import { Plus } from 'lucide-react'
 import { del, get, post } from '../api/client'
 import type { Category } from '../api/types'
 import { HeaderSearch } from '../components/HeaderSearch'
-import { Button, DataTable, Dialog, Input, Label } from '../components/ui'
+import {
+  Button,
+  DataTable,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+} from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 import { usePageTitle } from '../hooks/usePageTitle'
 
@@ -20,7 +33,10 @@ export default function Categories() {
     'Kategori',
     <>
       <HeaderSearch onSearch={setQ} placeholder="Cari kategori..." />
-      <Button onClick={() => setOpen(true)}>Tambah</Button>
+<Button onClick={() => setOpen(true)} size="sm" aria-label="Tambah">
+        <Plus className="size-4" />
+        <span className="hidden sm:inline">Tambah Kategori</span>
+      </Button>
     </>,
   )
 
@@ -69,30 +85,31 @@ export default function Categories() {
       )}
       {msg && <p className="text-sm font-medium text-primary">{msg}</p>}
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Tambah Kategori"
-        description="Nama kategori untuk mengelompokkan produk."
-      >
-        <form className="flex flex-col gap-4" onSubmit={create}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="category-name">Nama kategori</Label>
-            <Input
-              id="category-name"
-              placeholder="Makanan"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit">Simpan</Button>
-          </div>
-        </form>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Kategori</DialogTitle>
+            <DialogDescription>Nama kategori untuk mengelompokkan produk.</DialogDescription>
+          </DialogHeader>
+          <form id="category-form" className="flex flex-col gap-4" onSubmit={create}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="category-name">Nama kategori</Label>
+              <Input
+                id="category-name"
+                placeholder="Makanan"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="category-form">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <DataTable

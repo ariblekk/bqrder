@@ -9,7 +9,7 @@ Parameters
 
 Licensor:             Ari Haryanto
 
-Licensed Work:        bqrder
+Licensed Work:        qrdigo
                       Sistem Point of Sale (POS) multi-branch untuk
                       restoran/kafe: pemesanan via QR meja, layar kasir (POS),
                       dan dashboard admin multi-cabang. REST API (Go + Gin +

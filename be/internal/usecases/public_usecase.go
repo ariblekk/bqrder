@@ -95,6 +95,8 @@ func (u *PublicUseCase) GetMenu(branchID int) ([]entities.MenuCategory, error) {
 					Price:        p.Price,
 					Stock:        p.Stock,
 					ImageURL:     p.ImageURL,
+					Variants:     p.Variants,
+					Options:      p.Options,
 					TotalSold:    s.TotalSold,
 					TotalRevenue: s.TotalRevenue,
 				})

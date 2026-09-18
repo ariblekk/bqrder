@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { post, put } from '../../api/client'
 import ReceiptDialog from './ReceiptDialog'
-import { Button, Dialog, StatusTag } from '../ui'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  StatusTag,
+} from '../ui'
 import type { Order } from '../../api/types'
 
 export function fmtRp(n: number) {
@@ -58,9 +65,13 @@ export default function OrderDetailDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange} title={`Detail ${cur?.order_number ?? ''}`}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         {cur && (
-          <div className="flex flex-col gap-3 text-sm">
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Detail {cur.order_number}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <StatusTag status={cur.status} />
               <StatusTag status={cur.payment_status} />
@@ -72,11 +83,18 @@ export default function OrderDetailDialog({
             <ul className="m-0 max-h-56 list-none space-y-1 divide-y p-0">
               {cur.items.map((it) => (
                 <li key={it.id} className="flex items-center justify-between gap-2 py-1">
-                  <span>
-                    {it.quantity}x {it.product_name}
-                    {it.notes && <em className="ml-1 text-xs text-muted-foreground">({it.notes})</em>}
+                  <span className="min-w-0">
+                    <span className="block truncate">
+                      {it.quantity}x {it.product_name}
+                    </span>
+                    {(it.variant_name || it.option_names) && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {[it.variant_name, it.option_names].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    {it.notes && <em className="block truncate text-xs text-muted-foreground">({it.notes})</em>}
                   </span>
-                  <span>{fmtRp(it.subtotal)}</span>
+                  <span className="shrink-0">{fmtRp(it.subtotal)}</span>
                 </li>
               ))}
             </ul>
@@ -130,6 +148,7 @@ export default function OrderDetailDialog({
               Struk
             </Button>
           </div>
+          </DialogContent>
         )}
       </Dialog>
       <ReceiptDialog

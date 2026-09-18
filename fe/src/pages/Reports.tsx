@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Search } from 'lucide-react'
 import { get } from '../api/client'
 import type { CustomReport, DailySales, SalesSummary, TopProduct } from '../api/types'
 import { Button, Card, CardContent, Empty, EmptyContent, EmptyDescription, Input, Select } from '../components/ui'
@@ -18,10 +19,9 @@ interface Applied {
   end: string
 }
 
-function ReportControls({ initial, onApply, onRefresh }: {
+function ReportControls({ initial, onApply }: {
   initial: Applied
   onApply: (a: Applied) => void
-  onRefresh: () => void
 }) {
   const [period, setPeriod] = useState<Period>(initial.period)
   const [start, setStart] = useState(initial.start)
@@ -53,21 +53,19 @@ function ReportControls({ initial, onApply, onRefresh }: {
             value={end}
             onChange={(e) => setEnd(e.target.value)}
           />
-          <Button disabled={!start || !end} onClick={() => onApply({ period, start, end })}>
-            Lihat
+          <Button disabled={!start || !end} onClick={() => onApply({ period, start, end })} aria-label="Lihat" className="gap-1.5">
+            <Search className="size-4" />
+            <span className="hidden sm:inline">Lihat</span>
           </Button>
         </>
       )}
-      <Button variant="outline" onClick={onRefresh}>
-        Segarkan
-      </Button>
     </>
   )
 }
 
 export default function Reports() {
   const [applied, setApplied] = useState<Applied>({ period: 'daily', start: '', end: '' })
-  const { data, err, reload } = useAsync(async () => {
+  const { data, err } = useAsync(async () => {
     const { period, start, end } = applied
     if (period === 'daily') return { summary: (await get<SalesSummary>('/admin/reports/sales?period=daily')).data }
     if (period === 'monthly') return { summary: (await get<SalesSummary>('/admin/reports/sales?period=monthly')).data }
@@ -78,15 +76,13 @@ export default function Reports() {
     return {}
   }, [applied])
 
-  usePageTitle(
-    'Laporan Penjualan',
-    <ReportControls initial={applied} onApply={setApplied} onRefresh={reload} />,
-  )
+  usePageTitle('Laporan Penjualan')
 
   const s = data?.summary as SalesSummary | undefined
 
   return (
     <>
+      <ReportControls initial={applied} onApply={setApplied} />
       {err && <p className="text-sm font-medium text-destructive">{err}</p>}
       {s && (
         <div className="grid gap-3 sm:grid-cols-3">

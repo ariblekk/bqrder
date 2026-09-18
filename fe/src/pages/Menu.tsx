@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowRight, ShoppingBag } from 'lucide-react'
 import { get } from '../api/client'
-import type { MenuCategory, Table } from '../api/types'
+import type { MenuCategory, ProductOption, ProductVariant, Table, MenuProduct } from '../api/types'
+import ProductPicker, { type PickChoice } from '../components/ProductPicker'
 import {
   Badge,
   Button,
@@ -20,13 +21,37 @@ const CART_KEY = 'bqrder_cart'
 const QR_KEY = 'bqrder_qr'
 
 export interface CartLine {
-  product: { id: number; name: string; price: number; image_url?: string }
+  key: string
+  product: MenuProduct
+  variant: ProductVariant | null
+  options: ProductOption[]
   qty: number
+  notes: string
+}
+
+const lineVariant = (l: CartLine) => l.variant?.price ?? l.product.price
+export const linePrice = (l: CartLine) =>
+  lineVariant(l) + l.options.reduce((s, o) => s + o.price, 0)
+
+export function lineKey(p: { id: number }, variant: ProductVariant | null, options: ProductOption[]) {
+  const o = [...options]
+    .sort((a, b) => a.id - b.id)
+    .map((x) => x.id)
+    .join(',')
+  return `${p.id}:${variant?.id ?? 0}:${o}`
 }
 
 export function getCart(): CartLine[] {
   try {
-    return JSON.parse(localStorage.getItem(CART_KEY) || '[]')
+    const raw: any[] = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
+    return raw.map((l) => ({
+      key: l.key ?? `${l.product.id}:0::`,
+      product: l.product,
+      variant: l.variant ?? null,
+      options: l.options ?? [],
+      qty: l.qty,
+      notes: l.notes ?? '',
+    }))
   } catch {
     return []
   }
@@ -50,11 +75,12 @@ export default function Menu() {
 
   const [cart, setCartState] = useState<CartLine[]>(getCart)
   const [active, setActive] = useState('')
+  const [picker, setPicker] = useState<MenuProduct | null>(null)
   const { data, err } = useAsync(
     () => get<MenuCategory[]>(`/public/menu?qr_token=${qr}`),
     [qr],
   )
-  const total = cart.reduce((s, l) => s + l.product.price * l.qty, 0)
+  const total = cart.reduce((s, l) => s + linePrice(l) * l.qty, 0)
   const count = cart.reduce((s, l) => s + l.qty, 0)
 
   const cats = data?.data ?? []
@@ -62,16 +88,34 @@ export default function Menu() {
     ? cats.find((c) => c.name === active)?.products ?? []
     : cats.flatMap((c) => c.products)
 
-  function add(p: { id: number; name: string; price: number; image_url?: string }, qty: number) {
+  function adjustLine(
+    p: MenuProduct,
+    choice: { variant: ProductVariant | null; options: ProductOption[] },
+    delta: number,
+  ) {
+    const key = lineKey(p, choice.variant, choice.options)
     setCartState((prev) => {
-      const found = prev.find((l) => l.product.id === p.id)
+      const found = prev.find((l) => l.key === key)
       const next = found
-        ? prev.map((l) => (l.product.id === p.id ? { ...l, qty: Math.max(0, l.qty + qty) } : l))
-        : [...prev, { product: p, qty }]
-        .filter((l) => l.qty > 0)
+        ? prev.map((l) => (l.key === key ? { ...l, qty: Math.max(0, l.qty + delta) } : l))
+        : [...prev, { key, product: p, variant: choice.variant, options: choice.options, qty: delta, notes: '' }]
+          .filter((l) => l.qty > 0)
       setCart(next)
       return next
     })
+  }
+
+  function addQuick(p: MenuProduct, delta: number) {
+    adjustLine(p, { variant: null, options: [] }, delta)
+  }
+
+  function openPicker(p: MenuProduct) {
+    setPicker(p)
+  }
+
+  function confirmChoice(choice: PickChoice) {
+    if (!picker) return
+    adjustLine(picker, { variant: choice.variant, options: choice.options }, choice.qty)
   }
 
   return (
@@ -143,9 +187,12 @@ export default function Menu() {
 
         <div className="space-y-2 p-3 sm:p-4">
           {products.map((p) => {
-            const qty = cart.find((l) => l.product.id === p.id)?.qty ?? 0
+            const qty = cart.filter((l) => l.product.id === p.id).reduce((s, l) => s + l.qty, 0)
             const soldOut = p.stock === 0
             const hasSales = (p.total_sold ?? 0) > 0
+            const minPrice =
+              p.variants.length > 0 ? Math.min(...p.variants.map((v) => v.price)) : p.price
+            const hasChoices = p.variants.length > 0 || p.options.length > 0
             return (
               <Card
                 key={p.id}
@@ -157,7 +204,7 @@ export default function Menu() {
                     type="button"
                     disabled={soldOut}
                     className="relative block size-20 shrink-0 overflow-hidden rounded-lg bg-muted"
-                    onClick={() => add(p, 1)}
+                    onClick={() => openPicker(p)}
                   >
                     {p.image_url ? (
                       <img
@@ -186,21 +233,45 @@ export default function Menu() {
                         {p.description}
                       </p>
                     )}
+                    {/* {hasChoices && (
+                      <p className="mt-0.5 text-xs font-medium text-primary/80">
+                        {p.variants.length > 0 && `Pilih varian · `}
+                        {p.options.length > 0 && 'Ada pilihan tambahan'}
+                      </p>
+                    )} */}
                     {hasSales && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         Terjual {p.total_sold} item
                       </p>
                     )}
                     <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
-                      <span className="text-sm font-bold">{rupiah(p.price)}</span>
-                      {qty === 0 ? (
+                      <span className="text-sm font-bold">
+                        {hasChoices && 'mulai '}{rupiah(minPrice)}
+                      </span>
+                      {hasChoices ? (
+                        <div className="flex items-center gap-1.5">
+                          {qty > 0 && (
+                            <span className="text-xs font-semibold text-muted-foreground">{qty}x</span>
+                          )}
+                          <Button
+                            size="icon-sm"
+                            variant="outline"
+                            className="rounded-full"
+                            disabled={soldOut}
+                            aria-label={`Tambah ${p.name}`}
+                            onClick={() => openPicker(p)}
+                          >
+                            +
+                          </Button>
+                        </div>
+                      ) : qty === 0 ? (
                         <Button
                           size="icon-sm"
                           variant="outline"
                           className="rounded-full"
                           disabled={soldOut}
                           aria-label={`Tambah ${p.name}`}
-                          onClick={() => add(p, 1)}
+                          onClick={() => openPicker(p)}
                         >
                           +
                         </Button>
@@ -210,7 +281,7 @@ export default function Menu() {
                             size="icon-sm"
                             variant="ghost"
                             className="size-6 rounded-full"
-                            onClick={() => add(p, -1)}
+                            onClick={() => addQuick(p, -1)}
                           >
                             −
                           </Button>
@@ -220,7 +291,7 @@ export default function Menu() {
                             variant="ghost"
                             className="size-6 rounded-full"
                             disabled={soldOut}
-                            onClick={() => add(p, 1)}
+                            onClick={() => openPicker(p)}
                           >
                             +
                           </Button>
@@ -251,6 +322,13 @@ export default function Menu() {
           </div>
         </div>
       )}
+
+      <ProductPicker
+        product={picker}
+        open={!!picker}
+        onOpenChange={(v) => !v && setPicker(null)}
+        onConfirm={confirmChoice}
+      />
     </div>
   )
 }

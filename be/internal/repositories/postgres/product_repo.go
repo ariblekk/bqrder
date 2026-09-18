@@ -3,6 +3,8 @@ package postgres
 import (
 	"database/sql"
 
+	"github.com/lib/pq"
+
 	"be/internal/domain/entities"
 	"be/internal/domain/repositories"
 )
@@ -13,6 +15,124 @@ type ProductRepo struct {
 
 func NewProductRepo(q Querier) repositories.ProductRepository {
 	return &ProductRepo{q: q}
+}
+
+// attachChildren loads variants and options for a set of products in two
+// batched queries, so lists never trigger N+1 round trips.
+func (r *ProductRepo) attachChildren(products []entities.Product) error {
+	ids := make([]int, 0, len(products))
+	for _, p := range products {
+		ids = append(ids, p.ID)
+	}
+	variants, err := r.ListVariants(ids)
+	if err != nil {
+		return err
+	}
+	options, err := r.ListOptions(ids)
+	if err != nil {
+		return err
+	}
+	for i := range products {
+		v := variants[products[i].ID]
+		if v == nil {
+			v = []entities.ProductVariant{}
+		}
+		o := options[products[i].ID]
+		if o == nil {
+			o = []entities.ProductOption{}
+		}
+		products[i].Variants = v
+		products[i].Options = o
+	}
+	return nil
+}
+
+func (r *ProductRepo) ListVariants(productIDs []int) (map[int][]entities.ProductVariant, error) {
+	out := map[int][]entities.ProductVariant{}
+	if len(productIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.q.Query(`
+		SELECT id, product_id, name, price FROM product_variants
+		WHERE product_id = ANY($1)
+		ORDER BY id
+	`, pq.Array(productIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var v entities.ProductVariant
+		if err := rows.Scan(&v.ID, &v.ProductID, &v.Name, &v.Price); err != nil {
+			return nil, err
+		}
+		out[v.ProductID] = append(out[v.ProductID], v)
+	}
+	return out, rows.Err()
+}
+
+func (r *ProductRepo) ListOptions(productIDs []int) (map[int][]entities.ProductOption, error) {
+	out := map[int][]entities.ProductOption{}
+	if len(productIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.q.Query(`
+		SELECT id, product_id, name, price FROM product_options
+		WHERE product_id = ANY($1)
+		ORDER BY id
+	`, pq.Array(productIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var o entities.ProductOption
+		if err := rows.Scan(&o.ID, &o.ProductID, &o.Name, &o.Price); err != nil {
+			return nil, err
+		}
+		out[o.ProductID] = append(out[o.ProductID], o)
+	}
+	return out, rows.Err()
+}
+
+func (r *ProductRepo) ReplaceVariants(productID int, variants []entities.ProductVariant) error {
+	if err := r.deleteVariants(productID); err != nil {
+		return err
+	}
+	for _, v := range variants {
+		if _, err := r.q.Exec(
+			`INSERT INTO product_variants (product_id, name, price) VALUES ($1, $2, $3)`,
+			productID, v.Name, v.Price,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ProductRepo) ReplaceOptions(productID int, options []entities.ProductOption) error {
+	if err := r.deleteOptions(productID); err != nil {
+		return err
+	}
+	for _, o := range options {
+		if _, err := r.q.Exec(
+			`INSERT INTO product_options (product_id, name, price) VALUES ($1, $2, $3)`,
+			productID, o.Name, o.Price,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ProductRepo) deleteVariants(productID int) error {
+	_, err := r.q.Exec(`DELETE FROM product_variants WHERE product_id = $1`, productID)
+	return err
+}
+
+func (r *ProductRepo) deleteOptions(productID int) error {
+	_, err := r.q.Exec(`DELETE FROM product_options WHERE product_id = $1`, productID)
+	return err
 }
 
 func (r *ProductRepo) Create(product *entities.Product) (int, error) {
@@ -45,6 +165,9 @@ func (r *ProductRepo) FindByID(id int) (*entities.Product, error) {
 		}
 		return nil, err
 	}
+	if err := r.attachChildren([]entities.Product{p}); err != nil {
+		return nil, err
+	}
 	return &p, nil
 }
 
@@ -62,6 +185,9 @@ func (r *ProductRepo) FindByIDAndBranch(id, branchID int) (*entities.Product, er
 		if err == sql.ErrNoRows {
 			return nil, repositories.ErrNotFound
 		}
+		return nil, err
+	}
+	if err := r.attachChildren([]entities.Product{p}); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -91,7 +217,13 @@ func (r *ProductRepo) ListByBranch(branchID int, limit, offset int) ([]entities.
 		}
 		products = append(products, p)
 	}
-	return products, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachChildren(products); err != nil {
+		return nil, err
+	}
+	return products, nil
 }
 
 func (r *ProductRepo) CountByBranch(branchID int) (int, error) {
@@ -125,7 +257,13 @@ func (r *ProductRepo) ListActiveByBranch(branchID int) ([]entities.Product, erro
 		}
 		products = append(products, p)
 	}
-	return products, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachChildren(products); err != nil {
+		return nil, err
+	}
+	return products, nil
 }
 
 func (r *ProductRepo) SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error) {

@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowLeft, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Pencil, ShoppingBag } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../api/client'
 import type { Order } from '../api/types'
 import { Button, Card, CardContent, Input, Label } from '../components/ui'
 import { useDocTitle } from '../hooks/useDocTitle'
-import { getCart, getQr, setCart } from './Menu'
+import { getCart, getQr, linePrice, setCart } from './Menu'
 
 const rupiah = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
 
@@ -17,17 +17,33 @@ export default function Checkout() {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const total = cart.reduce((s, l) => s + l.product.price * l.qty, 0)
+  const [noteEditor, setNoteEditor] = useState<string | null>(null)
+  const total = cart.reduce((s, l) => s + linePrice(l) * l.qty, 0)
   const count = cart.reduce((s, l) => s + l.qty, 0)
 
-  function adjust(productId: number, delta: number) {
+  function adjust(key: string, delta: number) {
     setCartState((prev) => {
       const next = prev
-        .map((l) => (l.product.id === productId ? { ...l, qty: l.qty + delta } : l))
+        .map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l))
         .filter((l) => l.qty > 0)
       setCart(next)
       return next
     })
+  }
+
+  function setNotes(key: string, notes: string) {
+    setCartState((prev) => {
+      const next = prev.map((l) => (l.key === key ? { ...l, notes } : l))
+      setCart(next)
+      return next
+    })
+  }
+
+  function choiceLabel(l: (typeof cart)[number]) {
+    const parts: string[] = []
+    if (l.variant) parts.push(l.variant.name)
+    for (const o of l.options) parts.push(o.name)
+    return parts.join(' · ')
   }
 
   async function submit(e: FormEvent) {
@@ -37,7 +53,13 @@ export default function Checkout() {
     try {
       const res = await post<Order>(`/public/orders?qr_token=${qr}`, {
         customer_name: name,
-        items: cart.map((l) => ({ product_id: l.product.id, quantity: l.qty })),
+        items: cart.map((l) => ({
+          product_id: l.product.id,
+          quantity: l.qty,
+          variant_id: l.variant?.id,
+          option_ids: l.options.map((o) => o.id),
+          notes: l.notes,
+        })),
       })
       localStorage.removeItem('bqrder_cart')
       nav(`/o/${res.data.order_number}`)
@@ -101,52 +123,82 @@ export default function Checkout() {
 
         <Card size="sm">
           <CardContent className="divide-y divide-border">
-            {cart.map((l) => (
-              <div key={l.product.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                {l.product.image_url ? (
-                  <img
-                    src={l.product.image_url}
-                    alt={l.product.name}
-                    className="size-16 shrink-0 rounded-lg object-cover"
-                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                  />
-                ) : (
-                  <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">
-                    No image
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{l.product.name}</p>
-                  <p className="text-xs text-muted-foreground">{rupiah(l.product.price)} / pcs</p>
-                  <div className="mt-1.5 flex h-8 items-center justify-between gap-2">
-                    <div className="flex h-8 items-center gap-1 rounded-full border px-1">
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        className="size-6 rounded-full"
-                        aria-label={`Kurangi ${l.product.name}`}
-                        onClick={() => adjust(l.product.id, -1)}
-                      >
-                        −
-                      </Button>
-                      <span className="min-w-5 text-center text-sm font-semibold">{l.qty}</span>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        className="size-6 rounded-full"
-                        aria-label={`Tambah ${l.product.name}`}
-                        onClick={() => adjust(l.product.id, 1)}
-                      >
-                        +
-                      </Button>
+            {cart.map((l) => {
+              const label = choiceLabel(l)
+              return (
+                <div key={l.key} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  {l.product.image_url ? (
+                    <img
+                      src={l.product.image_url}
+                      alt={l.product.name}
+                      className="size-16 shrink-0 rounded-lg object-cover"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  ) : (
+                    <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">
+                      No image
                     </div>
-                    <span className="text-sm font-bold">{rupiah(l.product.price * l.qty)}</span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{l.product.name}</p>
+                    {label && <p className="text-xs font-medium text-primary/80">{label}</p>}
+                    <p className="text-xs text-muted-foreground">{rupiah(linePrice(l))} / pcs</p>
+                    {l.notes && noteEditor !== l.key && (
+                      <p className="truncate text-xs text-muted-foreground">Catatan: {l.notes}</p>
+                    )}
+                    {noteEditor === l.key && (
+                      <Input
+                        className="mt-1.5 h-8 text-xs"
+                        placeholder="Catatan (opsional), mis. tanpa es"
+                        value={l.notes}
+                        autoFocus
+                        maxLength={200}
+                        onChange={(e) => setNotes(l.key, e.target.value)}
+                      />
+                    )}
+                    <div className="mt-1.5 flex h-8 items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                      <div className="flex h-8 items-center gap-1 rounded-full border px-1">
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          className="size-6 rounded-full"
+                          aria-label={`Kurangi ${l.product.name}`}
+                          onClick={() => adjust(l.key, -1)}
+                        >
+                          −
+                        </Button>
+                        <span className="min-w-5 text-center text-sm font-semibold">{l.qty}</span>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          className="size-6 rounded-full"
+                          aria-label={`Tambah ${l.product.name}`}
+                          onClick={() => adjust(l.key, 1)}
+                        >
+                          +
+                        </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant={noteEditor === l.key ? 'default' : 'ghost'}
+                        className="size-8 rounded-full"
+                        aria-label="Tambah catatan"
+                        aria-pressed={noteEditor === l.key}
+                        onClick={() => setNoteEditor(noteEditor === l.key ? null : l.key)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      </div>
+                      <span className="text-sm font-bold">{rupiah(linePrice(l) * l.qty)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </CardContent>
         </Card>
 

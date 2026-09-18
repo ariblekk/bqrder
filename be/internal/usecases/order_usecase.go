@@ -97,8 +97,10 @@ func (u *OrderUseCase) createOrder(
 	err = u.withTx(func(uow repositories.UnitOfWork) error {
 		// Pre-validate all items and capture product prices inside the tx.
 		type validatedItem struct {
-			item  entities.CreateOrderItemInput
-			price float64
+			item        entities.CreateOrderItemInput
+			price       float64
+			variantName string
+			optionNames string
 		}
 		validated := make([]validatedItem, 0, len(items))
 		var total float64
@@ -111,8 +113,47 @@ func (u *OrderUseCase) createOrder(
 				return errors.New("product is inactive")
 			}
 
-			validated = append(validated, validatedItem{item: item, price: product.Price})
-			total += product.Price * float64(item.Quantity)
+			price := product.Price
+			variantName := ""
+			if len(product.Variants) > 0 {
+				if item.VariantID == nil {
+					return errors.New("please select a variant for " + product.Name)
+				}
+				for _, v := range product.Variants {
+					if v.ID == *item.VariantID {
+						price = v.Price
+						variantName = v.Name
+						break
+					}
+				}
+				if variantName == "" {
+					return errors.New("invalid variant for " + product.Name)
+				}
+			}
+
+			optionNames := []string{}
+			for _, oid := range item.OptionIDs {
+				found := false
+				for _, o := range product.Options {
+					if o.ID == oid {
+						price += o.Price
+						optionNames = append(optionNames, o.Name)
+						found = true
+						break
+					}
+				}
+				if !found {
+					return errors.New("invalid option for " + product.Name)
+				}
+			}
+
+			validated = append(validated, validatedItem{
+				item:        item,
+				price:       price,
+				variantName: variantName,
+				optionNames: strings.Join(optionNames, ", "),
+			})
+			total += price * float64(item.Quantity)
 		}
 
 		order = &entities.Order{
@@ -139,11 +180,13 @@ func (u *OrderUseCase) createOrder(
 
 		for _, vi := range validated {
 			orderItem := &entities.OrderItem{
-				OrderID:   id,
-				ProductID: vi.item.ProductID,
-				Quantity:  vi.item.Quantity,
-				Price:     vi.price,
-				Notes:     vi.item.Notes,
+				OrderID:     id,
+				ProductID:   vi.item.ProductID,
+				Quantity:    vi.item.Quantity,
+				Price:       vi.price,
+				Notes:       vi.item.Notes,
+				VariantName: vi.variantName,
+				OptionNames: vi.optionNames,
 			}
 
 			if _, err := uow.OrderRepo().CreateOrderItem(orderItem); err != nil {
@@ -351,6 +394,16 @@ func (u *OrderUseCase) Receipt(id, branchID int, branch *entities.Branch) (strin
 
 	for _, item := range order.Items {
 		b.WriteString(fmt.Sprintf("%s\n", item.ProductName))
+		if item.VariantName != "" || item.OptionNames != "" {
+			var opts []string
+			if item.VariantName != "" {
+				opts = append(opts, item.VariantName)
+			}
+			if item.OptionNames != "" {
+				opts = append(opts, item.OptionNames)
+			}
+			b.WriteString(fmt.Sprintf("  %s\n", strings.Join(opts, " · ")))
+		}
 		b.WriteString(fmt.Sprintf("  %d x %s%s\n", item.Quantity, formatIDR(item.Price), rightAlignIDR(item.Subtotal, width-15)))
 		if item.Notes != "" {
 			b.WriteString(fmt.Sprintf("  catatan: %s\n", item.Notes))

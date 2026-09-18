@@ -39,6 +39,8 @@ export default function PosOrders() {
         {allOrders.map((o: Order) => {
           const fromQr = o.payment_method === 'gateway'
           const notes = o.items.filter((it) => it.notes).map((it) => `${it.product_name}: ${it.notes}`)
+          const itemLabel = (it: (typeof o.items)[number]) =>
+            `${it.quantity}x ${it.product_name}${it.variant_name || it.option_names ? ` (${[it.variant_name, it.option_names].filter(Boolean).join(', ')})` : ''}`
           return (
             <Card
               key={o.id}
@@ -69,7 +71,7 @@ export default function PosOrders() {
                   {o.customer_name} • Meja {o.table_number || o.table_id || '-'} • {fmtRp(o.total_amount)}
                 </p>
                 <p className="text-sm">
-                  {o.items.map((it) => `${it.quantity}x ${it.product_name}`).join(', ')}
+                  {o.items.map((it) => itemLabel(it)).join(', ')}
                   {notes.length > 0 && <em className="text-muted-foreground"> — {notes.join('; ')}</em>}
                 </p>
               </CardContent>

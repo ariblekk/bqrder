@@ -56,12 +56,11 @@ export default function OrderStatus() {
             <p className="truncate text-xs font-medium uppercase tracking-widest text-muted-foreground">
               {o?.branch_name || 'bqrder'}
             </p>
-            <h1 className="truncate text-base font-bold">Status Pesanan</h1>
+            <h1 className="truncate text-sm font-bold">{o?.order_number}</h1>
           </div>
           {o && (
-            <p className="shrink-0 text-sm font-medium text-muted-foreground">
-              {o.order_number}
-              {o.table_number ? ` · Meja ${o.table_number}` : ''}
+            <p className="shrink-0 text-base font-medium text-muted-foreground">
+              {o.table_number ? `Meja ${o.table_number}` : 'Pesanan bawa pulang'}
             </p>
           )}
         </div>
@@ -167,7 +166,17 @@ export default function OrderStatus() {
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
                       {it.quantity}x
                     </span>
-                    <span className="flex-1 truncate text-sm font-medium">{it.product_name}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{it.product_name}</span>
+                      {(it.variant_name || it.option_names) && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {[it.variant_name, it.option_names].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                      {it.notes && (
+                        <span className="block truncate text-xs text-muted-foreground">Catatan: {it.notes}</span>
+                      )}
+                    </div>
                     <span className="text-sm">{rupiah(it.subtotal)}</span>
                   </div>
                 ))}

@@ -1,4 +1,4 @@
-import { ChevronsUpDown, ExternalLink, LogOut } from "lucide-react"
+import { ChevronsUpDown, LogOut } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -68,10 +68,9 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <a href="/menu" target="_blank" rel="noreferrer" className="cursor-pointer">
-                  <ExternalLink />
-                  Menu publik
-                </a>
+                <p className="flex w-full items-center gap-2">
+                  <span className="hidden sm:inline">v1.0.2</span>
+                </p>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

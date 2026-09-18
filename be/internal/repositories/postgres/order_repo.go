@@ -59,10 +59,11 @@ func (r *OrderRepo) Create(order *entities.Order) (int, error) {
 func (r *OrderRepo) CreateOrderItem(item *entities.OrderItem) (int, error) {
 	var id int
 	err := r.q.QueryRow(`
-		INSERT INTO order_items (order_id, product_id, quantity, price, notes)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO order_items (order_id, product_id, quantity, price, notes, variant_name, option_names)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
-	`, item.OrderID, item.ProductID, item.Quantity, item.Price, item.Notes).Scan(&id)
+	`, item.OrderID, item.ProductID, item.Quantity, item.Price, item.Notes,
+		item.VariantName, item.OptionNames).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -176,6 +177,7 @@ func (r *OrderRepo) GetOrderItemsBatch(orderIDs []int) (map[int][]entities.Order
 
 	rows, err := r.q.Query(`
 		SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.notes,
+		       oi.variant_name, oi.option_names,
 		       p.name AS product_name,
 		       oi.quantity::numeric * oi.price AS subtotal
 		FROM order_items oi
@@ -192,7 +194,7 @@ func (r *OrderRepo) GetOrderItemsBatch(orderIDs []int) (map[int][]entities.Order
 	for rows.Next() {
 		var it entities.OrderItem
 		if err := rows.Scan(&it.ID, &it.OrderID, &it.ProductID, &it.Quantity, &it.Price,
-			&it.Notes, &it.ProductName, &it.Subtotal); err != nil {
+			&it.Notes, &it.VariantName, &it.OptionNames, &it.ProductName, &it.Subtotal); err != nil {
 			return nil, err
 		}
 		items[it.OrderID] = append(items[it.OrderID], it)

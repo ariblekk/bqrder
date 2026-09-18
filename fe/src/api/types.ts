@@ -51,6 +51,20 @@ export interface Category {
   created_at?: string
 }
 
+export interface ProductVariant {
+  id: number
+  product_id: number
+  name: string
+  price: number
+}
+
+export interface ProductOption {
+  id: number
+  product_id: number
+  name: string
+  price: number
+}
+
 export interface Product {
   id: number
   branch_id: number
@@ -62,6 +76,8 @@ export interface Product {
   stock: number
   image_url?: string
   is_active: boolean
+  variants: ProductVariant[]
+  options: ProductOption[]
 }
 
 export interface ProductList extends Envelope<Product[]> {
@@ -81,6 +97,8 @@ export interface OrderItem {
   quantity: number
   price: number
   notes?: string
+  variant_name?: string
+  option_names?: string
   subtotal: number
 }
 
@@ -108,6 +126,8 @@ export interface MenuProduct {
   price: number
   stock: number
   image_url?: string
+  variants: ProductVariant[]
+  options: ProductOption[]
   total_sold?: number
   total_revenue?: number
 }

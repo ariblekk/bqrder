@@ -1,52 +1,92 @@
-import { useEffect } from 'react'
-import { get } from '../api/client'
-import type { SalesSummary } from '../api/types'
-import { Button, Card, CardContent } from '../components/ui'
-import { useAsync } from '../hooks/useAsync'
-import { usePageTitle } from '../hooks/usePageTitle'
+import { useEffect } from "react";
+import { get } from "../api/client";
+import type { SalesSummary } from "../api/types";
+import { Button } from "../components/ui";
+import { useAsync } from "../hooks/useAsync";
+import { usePageTitle } from "../hooks/usePageTitle";
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 export default function Dashboard() {
   const { data, err, reload } = useAsync(
-    () => get<SalesSummary>('/admin/reports/sales?period=daily'),
+    () => get<SalesSummary>("/admin/reports/sales?period=daily"),
     [],
-  )
-  const s = data?.data
+  );
+  const s = data?.data;
 
-  usePageTitle('Dashboard', (
+  usePageTitle(
+    "Dashboard",
     <Button variant="outline" onClick={reload}>
       Segarkan
-    </Button>
-  ))
+    </Button>,
+  );
 
   useEffect(() => {
-    const t = setInterval(reload, 15000)
-    return () => clearInterval(t)
-  }, [reload])
+    const t = setInterval(reload, 15000);
+    return () => clearInterval(t);
+  }, [reload]);
 
   const cards = s
     ? [
-        { label: 'Pesanan Hari Ini', value: s.total_orders },
-        { label: 'Pendapatan Hari Ini', value: s.total_revenue.toLocaleString('id-ID'), money: true },
-        { label: 'Selesai', value: s.completed_orders },
-        { label: 'Pending', value: s.pending_orders },
-        { label: 'Dibatalkan', value: s.cancelled_orders },
-        { label: 'Rata-rata per Pesanan', value: s.average_order_value.toLocaleString('id-ID'), money: true },
+        {
+          label: "Pesanan Hari Ini",
+          value: s.total_orders,
+          icon: "TrendingUp",
+        },
+        { label: "Selesai", value: s.completed_orders },
+        { label: "Pending", value: s.pending_orders },
+        {
+          label: "Pendapatan Hari Ini",
+          value: s.total_revenue.toLocaleString("id-ID"),
+          money: true,
+          icon: "TrendingUp",
+        },
       ]
-    : []
+    : [];
 
   return (
     <>
       {err && <p className="text-sm font-medium text-destructive">{err}</p>}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards.map((c) => (
-          <Card key={c.label} size="sm">
-            <CardContent className="flex flex-col gap-1">
-              <span className="text-sm text-muted-foreground">{c.label}</span>
-              <strong className="text-xl font-semibold">{c.value}</strong>
-            </CardContent>
+          <Card key={c.label} className="@container/card">
+            <CardHeader>
+              <CardDescription>{c.label}</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {c.value}
+              </CardTitle>
+              <CardAction>
+                <Badge variant="outline">
+                  {c.icon === "TrendingUp" ? (
+                    <TrendingUp className="size-4" />
+                  ) : c.icon === "TrendingDown" ? (
+                    <TrendingDown className="size-4" />
+                  ) : null}
+                  +12.5%
+                </Badge>
+              </CardAction>
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1.5 text-sm">
+              <div className="line-clamp-1 flex gap-2 font-medium">
+                Trending up this month <TrendingUp className="size-4" />
+              </div>
+              <div className="text-muted-foreground">
+                Visitors for the last 6 months
+              </div>
+            </CardFooter>
           </Card>
         ))}
       </div>
+      Aksi Cepat
     </>
-  )
+  );
 }

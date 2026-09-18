@@ -5,7 +5,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/bqrder ./cmd/server
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/qrdigo ./cmd/server
 
 FROM alpine:3.20
 
@@ -16,10 +16,10 @@ RUN apk add --no-cache ca-certificates \
 WORKDIR /app
 USER app
 
-COPY --from=builder /out/bqrder .
+COPY --from=builder /out/qrdigo .
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -q -O /dev/null http://localhost:8080/api/v1/health || exit 1
 
-CMD ["./bqrder"]
+CMD ["./qrdigo"]

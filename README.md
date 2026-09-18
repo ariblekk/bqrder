@@ -17,7 +17,7 @@ bqrder/
 
 ## Persyaratan
 
-- **Node.js** 18+ & npm
+- **Node.js** 18+ & pnpm
 - **Go** 1.22+ *atau* **Docker** (untuk backend)
 - **PostgreSQL** 14+ (opsional — bisa pakai Supabase)
 
@@ -70,8 +70,8 @@ Health check: `http://localhost:8080/api/v1/health`
 
 ```ps1
 cd fe
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Buka `http://localhost:3000`. Jika backend bukan di `localhost:8080`, ubah `VITE_API_URL` di `fe/.env`.
@@ -130,7 +130,7 @@ bqrder/
 ## Perintah Berguna
 
 ```ps1
-cd fe && npm run build   # build produksi frontend
+cd fe && pnpm run build   # build produksi frontend
 cd be && go test ./...    # unit test backend
 cd be && go build ./...   # build backend
 ```

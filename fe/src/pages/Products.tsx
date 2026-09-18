@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Plus } from 'lucide-react'
 import { del, get, post, put, upload } from '../api/client'
 import type { Category, Product } from '../api/types'
 import {
@@ -8,6 +8,12 @@ import {
   ConfirmDialog,
   DataTable,
   Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -21,7 +27,12 @@ import { useAsync } from '../hooks/useAsync'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { HeaderSearch } from '../components/HeaderSearch'
 
-const empty = { category_id: 0, name: '', price: 0, stock: 0 }
+interface ChoiceRow {
+  name: string
+  price: number
+}
+
+const empty = { category_id: 0, name: '', price: 0, stock: 0, variants: [] as ChoiceRow[], options: [] as ChoiceRow[] }
 
 export default function Products() {
   const [open, setOpen] = useState(false)
@@ -36,7 +47,10 @@ export default function Products() {
     'Produk',
     <>
       <HeaderSearch onSearch={setQ} />
-      <Button onClick={() => setOpen(true)}>Tambah Produk</Button>
+      <Button onClick={() => setOpen(true)} size="sm" aria-label="Tambah Produk">
+        <Plus className="size-4" />
+        <span className="hidden sm:inline">Tambah Produk</span>
+      </Button>
     </>,
   )
   const { data, err, reload } = useAsync(
@@ -87,7 +101,14 @@ export default function Products() {
                 <DropdownMenuItem
                   onClick={() => {
                     setEditing(p)
-                    setForm({ category_id: p.category_id, name: p.name, price: p.price, stock: p.stock })
+                    setForm({
+                      category_id: p.category_id,
+                      name: p.name,
+                      price: p.price,
+                      stock: p.stock,
+                      variants: (p.variants ?? []).map((v) => ({ name: v.name, price: v.price })),
+                      options: (p.options ?? []).map((o) => ({ name: o.name, price: o.price })),
+                    })
                     setImage(null)
                     setOpen(true)
                   }}
@@ -112,7 +133,19 @@ export default function Products() {
       toast('Pilih kategori dulu', { variant: 'error' })
       return
     }
-    const payload = { ...form, price: Number(form.price), stock: Number(form.stock) }
+    const variants = form.variants
+      .filter((v) => v.name.trim())
+      .map((v) => ({ name: v.name.trim(), price: Number(v.price) }))
+    const options = form.options
+      .filter((o) => o.name.trim())
+      .map((o) => ({ name: o.name.trim(), price: Number(o.price) }))
+    const payload = {
+      ...form,
+      price: Number(form.price),
+      stock: Number(form.stock),
+      variants,
+      options,
+    }
     try {
       let id: number | undefined
       if (editing) {
@@ -152,82 +185,102 @@ export default function Products() {
             setImage(null)
           }
         }}
-        title={editing ? 'Edit Produk' : 'Tambah Produk'}
-        description={
-          editing
-            ? `Perbarui data produk "${editing.name}".`
-            : 'Isi data produk untuk cabang yang sedang dipilih.'
-        }
       >
-        <form className="flex flex-col gap-4" onSubmit={submit}>
-          <div className="flex flex-col gap-2">
-            <Label>Kategori</Label>
-            <Select
-              value={form.category_id ? String(form.category_id) : ''}
-              placeholder="Pilih kategori"
-              options={
-                cats?.data.map((c: Category) => ({ value: String(c.id), label: c.name })) ?? []
-              }
-              onValueChange={(v) => setForm({ ...form, category_id: Number(v) })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="product-name">Nama produk</Label>
-            <Input
-              id="product-name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="product-price">Harga</Label>
-            <Input
-              id="product-price"
-              type="number"
-              min={0}
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="product-stock">Stok</Label>
-            <Input
-              id="product-stock"
-              type="number"
-              min={0}
-              value={form.stock}
-              onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-              required
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            {(image || (editing?.image_url ?? '')) && (
-              <img
-                className="size-20 rounded-lg object-cover"
-                src={image ? URL.createObjectURL(image) : editing?.image_url}
-                alt=""
-              />
-            )}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="product-image">Foto</Label>
-              <Input
-                id="product-image"
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Produk' : 'Tambah Produk'}</DialogTitle>
+            <DialogDescription>
+              {editing
+                ? `Perbarui data produk "${editing.name}".`
+                : 'Isi data produk untuk cabang yang sedang dipilih.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form id="product-form" className="-mx-4 no-scrollbar flex max-h-[50vh] flex-col gap-4 overflow-y-auto px-4" onSubmit={submit}>
+            <div className="flex flex-col gap-2">
+              <Label>Kategori</Label>
+              <Select
+                value={form.category_id ? String(form.category_id) : ''}
+                placeholder="Pilih kategori"
+                options={
+                  cats?.data.map((c: Category) => ({ value: String(c.id), label: c.name })) ?? []
+                }
+                onValueChange={(v) => setForm({ ...form, category_id: Number(v) })}
               />
             </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Batal
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="product-name">Nama produk</Label>
+              <Input
+                id="product-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="product-price">Harga</Label>
+              <Input
+                id="product-price"
+                type="number"
+                min={0}
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="product-stock">Stok</Label>
+              <Input
+                id="product-stock"
+                type="number"
+                min={0}
+                value={form.stock}
+                onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                required
+              />
+            </div>
+            <ChoiceEditor
+              label="Varian (pilih satu, harga beda)"
+              hint="Contoh: Ice Rp 20.000, Hot Rp 18.000"
+              rows={form.variants}
+              addText="Tambah varian"
+              onChange={(variants) => setForm({ ...form, variants })}
+            />
+            <ChoiceEditor
+              label="Pilihan tambahan (opsional, bisa lebih dari satu)"
+              hint="Contoh: Less Ice, Less Sugar"
+              rows={form.options}
+              addText="Tambah pilihan"
+              onChange={(options) => setForm({ ...form, options })}
+            />
+            <div className="flex items-center gap-3">
+              {(image || (editing?.image_url ?? '')) && (
+                <img
+                  className="size-20 rounded-lg object-cover"
+                  src={image ? URL.createObjectURL(image) : editing?.image_url}
+                  alt=""
+                />
+              )}
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="product-image">Foto</Label>
+                <Input
+                  id="product-image"
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="product-form">
+              Simpan
             </Button>
-            <Button type="submit">Simpan</Button>
-          </div>
-        </form>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <DataTable
@@ -257,5 +310,66 @@ export default function Products() {
         }}
       />
     </>
+  )
+}
+
+function ChoiceEditor({
+  label,
+  hint,
+  rows,
+  addText,
+  onChange,
+}: {
+  label: string
+  hint: string
+  rows: ChoiceRow[]
+  addText: string
+  onChange: (rows: ChoiceRow[]) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <Label>{label}</Label>
+        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <div className="flex flex-col gap-2">
+        {rows.length === 0 && (
+          <p className="text-xs text-muted-foreground">Belum ada — bisa dikosongkan bila tidak perlu.</p>
+        )}
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Input
+              placeholder="Nama"
+              value={r.name}
+              onChange={(e) =>
+                onChange(rows.map((x, idx) => (idx === i ? { ...x, name: e.target.value } : x)))
+              }
+            />
+            <Input
+              type="number"
+              min={0}
+              placeholder="Harga"
+              className="w-28"
+              value={r.price || ''}
+              onChange={(e) =>
+                onChange(rows.map((x, idx) => (idx === i ? { ...x, price: Number(e.target.value) } : x)))
+              }
+            />
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Hapus"
+              onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+            >
+              ×
+            </Button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { name: '', price: 0 }])}>
+          + {addText}
+        </Button>
+      </div>
+    </div>
   )
 }

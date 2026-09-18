@@ -104,13 +104,20 @@ func (f *fakeOrderRepo) GetSalesReport(branchID int, startDate, endDate string) 
 type fakeProductRepo struct {
 	stock          map[int]int
 	decreaseCalled []int
+	fixed          *entities.Product
 }
 
 func (f *fakeProductRepo) Create(product *entities.Product) (int, error) { return 0, nil }
 func (f *fakeProductRepo) FindByID(id int) (*entities.Product, error) {
+	if f.fixed != nil {
+		return f.fixed, nil
+	}
 	return &entities.Product{ID: id, Name: "prod", Stock: f.stock[id]}, nil
 }
 func (f *fakeProductRepo) FindByIDAndBranch(id, branchID int) (*entities.Product, error) {
+	if f.fixed != nil {
+		return f.fixed, nil
+	}
 	return &entities.Product{ID: id, Name: "prod", Stock: f.stock[id], Price: 10000, IsActive: true}, nil
 }
 func (f *fakeProductRepo) ListByBranch(branchID int, limit, offset int) ([]entities.Product, error) {
@@ -126,6 +133,18 @@ func (f *fakeProductRepo) Delete(id int) error                       { return ni
 func (f *fakeProductRepo) DecreaseStock(productID, quantity int) error {
 	f.decreaseCalled = append(f.decreaseCalled, productID)
 	f.stock[productID] -= quantity
+	return nil
+}
+func (f *fakeProductRepo) ListVariants(ids []int) (map[int][]entities.ProductVariant, error) {
+	return map[int][]entities.ProductVariant{}, nil
+}
+func (f *fakeProductRepo) ListOptions(ids []int) (map[int][]entities.ProductOption, error) {
+	return map[int][]entities.ProductOption{}, nil
+}
+func (f *fakeProductRepo) ReplaceVariants(id int, variants []entities.ProductVariant) error {
+	return nil
+}
+func (f *fakeProductRepo) ReplaceOptions(id int, options []entities.ProductOption) error {
 	return nil
 }
 
@@ -149,7 +168,7 @@ func (f *fakeTableRepo) Update(table *entities.Table) error                  { r
 func (f *fakeProductRepo) SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error) {
 	return nil, nil
 }
-func (f *fakeTableRepo) Delete(id int) error                                 { return nil }
+func (f *fakeTableRepo) Delete(id int) error { return nil }
 
 type fakeTx struct {
 	uow repositories.UnitOfWork
@@ -375,6 +394,50 @@ func TestUnpaidOrderCannotBeCompleted(t *testing.T) {
 
 	if _, err := uc.UpdateStatus(1, 1, entities.OrderStatusCompleted); err == nil {
 		t.Fatal("unpaid order must not be completable")
+	}
+}
+
+func TestOrderUsesVariantAndOptionPrice(t *testing.T) {
+	orderRepo := &fakeOrderRepo{orders: map[int]*entities.Order{}, items: map[int][]entities.OrderItem{}}
+	product := &entities.Product{
+		ID: 10, BranchID: 1, Name: "Kopi Latte", Price: 15000, Stock: 99, IsActive: true,
+		Variants: []entities.ProductVariant{{ID: 1, Name: "Ice", Price: 20000}, {ID: 2, Name: "Hot", Price: 18000}},
+		Options:  []entities.ProductOption{{ID: 1, Name: "Less Ice", Price: 0}, {ID: 2, Name: "Less Sugar", Price: 0}, {ID: 3, Name: "Extra Shot", Price: 5000}},
+	}
+	productRepo := &fakeProductRepo{stock: map[int]int{10: 99}, fixed: product}
+	uow := &fakeUOW{order: orderRepo, product: productRepo}
+	uc := NewOrderUseCase(orderRepo, productRepo, &fakeTableRepo{}, &fakeTx{uow: uow})
+
+	ice := 1
+	order, err := uc.CreateFromCustomer(1, &entities.CreateOrderRequest{
+		Items: []entities.CreateOrderItemInput{
+			{ProductID: 10, Quantity: 2, VariantID: &ice, OptionIDs: []int{1, 3}},
+			{ProductID: 10, Quantity: 1, OptionIDs: []int{2}}, // no variant -> must be rejected
+		},
+	})
+	if err == nil {
+		t.Fatal("product with variants must require variant_id")
+	}
+
+	hot := 2
+	order, err = uc.CreateFromCustomer(1, &entities.CreateOrderRequest{
+		Items: []entities.CreateOrderItemInput{
+			{ProductID: 10, Quantity: 2, VariantID: &hot, OptionIDs: []int{2}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// Hot 18000 + Less Sugar 0 = 18000 x 2 = 36000
+	if order.TotalAmount != 36000 {
+		t.Fatalf("total should be 36000, got %v", order.TotalAmount)
+	}
+	it := order.Items[0]
+	if it.VariantName != "Hot" || it.OptionNames != "Less Sugar" {
+		t.Fatalf("item should record Hot · Less Sugar, got %q / %q", it.VariantName, it.OptionNames)
+	}
+	if it.Price != 18000 {
+		t.Fatalf("unit price should be 18000, got %v", it.Price)
 	}
 }
 

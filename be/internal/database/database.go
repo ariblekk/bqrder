@@ -51,6 +51,24 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_audit_branch ON audit_logs(branch_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity, entity_id);`)
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity, entity_id);
+CREATE TABLE IF NOT EXISTS product_variants (
+    id         SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
+CREATE TABLE IF NOT EXISTS product_options (
+    id         SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_product_options_product ON product_options(product_id);
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_name TEXT DEFAULT '';
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS option_names TEXT DEFAULT '';`)
 	return err
 }

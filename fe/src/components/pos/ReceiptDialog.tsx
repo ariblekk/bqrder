@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { get } from '../../api/client'
-import { Button, Dialog } from '../ui'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui'
 
 export default function ReceiptDialog({
   orderId,
@@ -34,9 +41,16 @@ export default function ReceiptDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Struk">
-      <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">{receipt}</pre>
-      <Button onClick={printReceipt}>Cetak</Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Struk</DialogTitle>
+        </DialogHeader>
+        <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">{receipt}</pre>
+        <DialogFooter>
+          <Button onClick={printReceipt}>Cetak</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

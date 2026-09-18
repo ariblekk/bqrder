@@ -1,5 +1,5 @@
 -- =====================================================
--- bqrder POS — FULL SCHEMA untuk Supabase SQL Editor
+-- qrdigo POS — FULL SCHEMA untuk Supabase SQL Editor
 -- Postgres 14+. Paste seluruh isi file ini, lalu RUN.
 -- =====================================================
 -- CATATAN:
@@ -97,6 +97,29 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_branch ON products(branch_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 
+-- ---------- Product Variants (pilihan wajib satu, harga sendiri, mis. Ice/Rp20rb, Hot/Rp18rb) ----------
+CREATE TABLE IF NOT EXISTS product_variants (
+    id         SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
+
+-- ---------- Product Options (tambahan opsional, mis. Less Ice / Less Sugar) ----------
+-- ponytail: stok tetap di level product, tidak per variant. Tambah stock per variant kalau tiap varian punya stok terpisah.
+CREATE TABLE IF NOT EXISTS product_options (
+    id         SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_options_product ON product_options(product_id);
+
 -- ---------- Orders ----------
 CREATE TABLE IF NOT EXISTS orders (
     id             SERIAL PRIMARY KEY,
@@ -119,12 +142,14 @@ CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
 -- ---------- Order Items ----------
 CREATE TABLE IF NOT EXISTS order_items (
-    id         SERIAL PRIMARY KEY,
-    order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-    quantity   INTEGER NOT NULL DEFAULT 1,
-    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    notes      TEXT DEFAULT ''
+    id           SERIAL PRIMARY KEY,
+    order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    quantity     INTEGER NOT NULL DEFAULT 1,
+    price        NUMERIC(12,2) NOT NULL DEFAULT 0,
+    notes        TEXT DEFAULT '',
+    variant_name TEXT DEFAULT '',
+    option_names TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);

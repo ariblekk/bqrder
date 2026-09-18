@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	ErrNotFound       = errors.New("record not found")
-	ErrAlreadyPaid    = errors.New("order already paid")
-	ErrStatusConflict = errors.New("order status changed by another request")
+	ErrNotFound          = errors.New("record not found")
+	ErrAlreadyPaid       = errors.New("order already paid")
+	ErrStatusConflict    = errors.New("order status changed by another request")
 	ErrInsufficientStock = errors.New("insufficient stock")
 )
 
@@ -60,6 +60,10 @@ type ProductRepository interface {
 	UpdateImage(id int, imageURL string) error
 	Delete(id int) error
 	DecreaseStock(productID, quantity int) error
+	ListVariants(productIDs []int) (map[int][]entities.ProductVariant, error)
+	ListOptions(productIDs []int) (map[int][]entities.ProductOption, error)
+	ReplaceVariants(productID int, variants []entities.ProductVariant) error
+	ReplaceOptions(productID int, options []entities.ProductOption) error
 }
 
 type AuditRepository interface {

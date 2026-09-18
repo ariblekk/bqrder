@@ -3,16 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { get, post } from '../api/client'
 import { subscribeOrderEvents } from '../api/sse'
-import type { Branch, Order, Product } from '../api/types'
+import type { Branch, Order, Product, ProductOption, ProductVariant } from '../api/types'
 import OrderDetailDialog, { fmtRp } from '../components/pos/OrderDetailDialog'
 import PosHeader from '../components/pos/PosHeader'
+import ProductPicker, { type PickChoice } from '../components/ProductPicker'
 import ReceiptDialog from '../components/pos/ReceiptDialog'
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
   Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,8 +34,23 @@ import { useAsync } from '../hooks/useAsync'
 import { cn } from '../lib/utils'
 
 interface CartLine {
+  key: string
   product: Product
+  variant: ProductVariant | null
+  options: ProductOption[]
   qty: number
+  notes: string
+}
+
+const linePrice = (l: CartLine) =>
+  (l.variant?.price ?? l.product.price) + l.options.reduce((s, o) => s + o.price, 0)
+
+function lineKey(p: Product, variant: ProductVariant | null, options: ProductOption[]) {
+  const o = [...options]
+    .sort((a, b) => a.id - b.id)
+    .map((x) => x.id)
+    .join(',')
+  return `${p.id}:${variant?.id ?? 0}:${o}`
 }
 
 function timeAgo(iso: string) {
@@ -48,6 +71,7 @@ export default function Pos() {
   const [search, setSearch] = useState('')
   const [cat, setCat] = useState('Semua')
   const [cart, setCart] = useState<CartLine[]>([])
+  const [picker, setPicker] = useState<Product | null>(null)
   const [customer, setCustomer] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
@@ -74,24 +98,43 @@ export default function Pos() {
   const filtered = q ? products.filter((p) => p.name.toLowerCase().includes(q)) : products
   const allCategories = ['Semua', ...new Set(products.map((p) => p.category_name || 'Lainnya'))]
   const shown = cat === 'Semua' ? filtered : filtered.filter((p) => (p.category_name || 'Lainnya') === cat)
-  const total = cart.reduce((s, l) => s + l.product.price * l.qty, 0)
+  const total = cart.reduce((s, l) => s + linePrice(l) * l.qty, 0)
   const itemCount = cart.reduce((s, l) => s + l.qty, 0)
 
-  function addToCart(p: Product) {
+  function addLine(p: Product, choice: { variant: ProductVariant | null; options: ProductOption[] }, delta: number) {
+    const key = lineKey(p, choice.variant, choice.options)
     setCart((prev) => {
-      const found = prev.find((l) => l.product.id === p.id)
+      const found = prev.find((l) => l.key === key)
       if (found) {
-        if (found.qty >= p.stock) return prev
-        return prev.map((l) => (l.product.id === p.id ? { ...l, qty: l.qty + 1 } : l))
+        const nextQty = found.qty + delta
+        if (nextQty > p.stock) return prev
+        return prev.map((l) => (l.key === key ? { ...l, qty: nextQty } : l))
       }
-      return p.stock < 1 ? prev : [...prev, { product: p, qty: 1 }]
+      if (delta < 1 || p.stock < 1) return prev
+      return [...prev, { key, product: p, variant: choice.variant, options: choice.options, qty: delta, notes: '' }]
     })
   }
 
-  function changeQty(id: number, delta: number) {
+  function addToCart(p: Product) {
+    setPicker(p)
+  }
+
+  function confirmChoice(choice: PickChoice) {
+    if (!picker) return
+    addLine(picker, { variant: choice.variant, options: choice.options }, choice.qty)
+  }
+
+  function changeQty(key: string, delta: number) {
     setCart((prev) =>
-      prev.map((l) => (l.product.id === id ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0),
+      prev.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0),
     )
+  }
+
+  function lineLabel(l: CartLine) {
+    const parts: string[] = []
+    if (l.variant) parts.push(l.variant.name)
+    for (const o of l.options) parts.push(o.name)
+    return parts.join(' · ')
   }
 
   async function submit(pay: boolean) {
@@ -101,7 +144,13 @@ export default function Pos() {
     try {
       const res = await post<Order>('/pos/orders/direct', {
         customer_name: customer,
-        items: cart.map((l) => ({ product_id: l.product.id, quantity: l.qty })),
+        items: cart.map((l) => ({
+          product_id: l.product.id,
+          quantity: l.qty,
+          variant_id: l.variant?.id,
+          option_ids: l.options.map((o) => o.id),
+          notes: l.notes,
+        })),
         pay,
       })
       setCart([])
@@ -220,36 +269,51 @@ export default function Pos() {
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {shown.map((p) => {
-                const qty = cart.find((l) => l.product.id === p.id)?.qty ?? 0
+                const qty = cart.filter((l) => l.product.id === p.id).reduce((s, l) => s + l.qty, 0)
+                const hasChoices = p.variants.length > 0 || p.options.length > 0
+                const minPrice =
+                  p.variants.length > 0 ? Math.min(...p.variants.map((v) => v.price)) : p.price
                 return (
-                  <button
+                  <Card
                     key={p.id}
-                    type="button"
-                    disabled={p.stock === 0}
-                    onClick={() => addToCart(p)}
-                    className="relative flex h-full flex-col items-stretch gap-1.5 overflow-hidden rounded-lg border p-0 text-left text-sm transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    size="sm"
+                    className={cn('relative h-full', p.stock === 0 && 'opacity-50')}
                   >
-                    <div className="relative aspect-4/3 w-full shrink-0 bg-muted">
-                      {p.image_url ? (
-                        <img
-                          className="size-full object-cover"
-                          src={p.image_url}
-                          alt={p.name}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-                          No image
-                        </div>
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.name}
+                        loading="lazy"
+                        className="aspect-video w-full object-cover"
+                      />
+                    ) : (
+                      <div className="aspect-video w-full bg-muted" />
+                    )}
+                    <Badge variant="secondary" className="absolute top-2 right-2 bg-background/80 backdrop-blur">
+                      stok {p.stock}
+                    </Badge>
+                    <CardHeader>
+                      <CardTitle className="truncate">{p.name}</CardTitle>
+                      <CardDescription>
+                        <span className="font-semibold text-foreground">
+                          {hasChoices && 'mulai '}Rp {minPrice.toLocaleString('id-ID')}
+                        </span>
+                      </CardDescription>
+                      {hasChoices && (
+                        <CardDescription className="text-xs">Ada varian / pilihan</CardDescription>
                       )}
-                      {qty > 0 && <Badge className="absolute top-1 right-1">{qty}</Badge>}
-                    </div>
-                    <div className="flex flex-1 flex-col gap-0.5 p-1.5">
-                      <span className="truncate font-medium">{p.name}</span>
-                      <span className="text-muted-foreground">Rp {p.price.toLocaleString('id-ID')}</span>
-                      <span className="mt-auto text-xs text-muted-foreground">stok {p.stock}</span>
-                    </div>
-                  </button>
+                    </CardHeader>
+                    <CardFooter className="mt-auto">
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        disabled={p.stock === 0}
+                        onClick={() => addToCart(p)}
+                      >
+                        {qty > 0 ? `Tambah lagi (${qty})` : 'Tambah'}
+                      </Button>
+                    </CardFooter>
+                  </Card>
                 )
               })}
             </div>
@@ -275,9 +339,17 @@ export default function Pos() {
               ) : (
                 <ul className="m-0 flex-1 list-none divide-y divide-border overflow-y-auto p-0 text-sm">
                   {cart.map((l) => (
-                    <li key={l.product.id} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
-                      <span className="flex-1">
-                        {l.product.name} — Rp {(l.product.price * l.qty).toLocaleString('id-ID')}
+                    <li key={l.key} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">
+                          {l.product.name} — Rp {(linePrice(l) * l.qty).toLocaleString('id-ID')}
+                        </span>
+                        {lineLabel(l) && (
+                          <span className="block truncate text-xs text-muted-foreground">{lineLabel(l)}</span>
+                        )}
+                        {l.notes && (
+                          <span className="block truncate text-xs text-muted-foreground">Catatan: {l.notes}</span>
+                        )}
                       </span>
                       <div className="flex h-8 items-center gap-1 rounded-full border px-1">
                         <Button
@@ -285,7 +357,7 @@ export default function Pos() {
                           variant="ghost"
                           className="size-6 rounded-full"
                           aria-label={`Kurangi ${l.product.name}`}
-                          onClick={() => changeQty(l.product.id, -1)}
+                          onClick={() => changeQty(l.key, -1)}
                         >
                           −
                         </Button>
@@ -296,7 +368,7 @@ export default function Pos() {
                           className="size-6 rounded-full"
                           disabled={l.qty >= l.product.stock}
                           aria-label={`Tambah ${l.product.name}`}
-                          onClick={() => changeQty(l.product.id, 1)}
+                          onClick={() => changeQty(l.key, 1)}
                         >
                           +
                         </Button>
@@ -321,18 +393,23 @@ export default function Pos() {
         </section>
       </div>
 
-      <Dialog open={payOpen} onOpenChange={setPayOpen} title="Metode Pembayaran">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">
-            {customer} • Rp {total.toLocaleString('id-ID')}
-          </p>
-          <Button disabled={busy} onClick={() => submit(true)}>
-            Tunai (langsung dibayar)
-          </Button>
-          <Button variant="outline" disabled={busy} onClick={() => submit(false)}>
-            Bayar di tempat
-          </Button>
-        </div>
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Metode Pembayaran</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-muted-foreground">
+              {customer} • Rp {total.toLocaleString('id-ID')}
+            </p>
+            <Button disabled={busy} onClick={() => submit(true)}>
+              Tunai (langsung dibayar)
+            </Button>
+            <Button variant="outline" disabled={busy} onClick={() => submit(false)}>
+              Bayar di tempat
+            </Button>
+          </div>
+        </DialogContent>
       </Dialog>
 
       <ReceiptDialog
@@ -340,6 +417,13 @@ export default function Pos() {
         open={receiptOpen}
         onOpenChange={setReceiptOpen}
         onError={setDone}
+      />
+
+      <ProductPicker
+        product={picker}
+        open={!!picker}
+        onOpenChange={(v) => !v && setPicker(null)}
+        onConfirm={confirmChoice}
       />
 
       <OrderDetailDialog

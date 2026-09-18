@@ -74,6 +74,10 @@ func (u *ProductUseCase) Create(branchID int, req *entities.CreateProductRequest
 		return nil, err
 	}
 
+	if err := u.replaceChoices(id, req.Variants, req.Options); err != nil {
+		return nil, err
+	}
+
 	return u.productRepo.FindByID(id)
 }
 
@@ -125,7 +129,37 @@ func (u *ProductUseCase) Update(id, branchID int, req *entities.UpdateProductReq
 		return nil, err
 	}
 
+	if err := u.replaceChoices(id, req.Variants, req.Options); err != nil {
+		return nil, err
+	}
+
 	return u.productRepo.FindByID(id)
+}
+
+// replaceChoices stores the product's variants and options. A nil input leaves
+// that group untouched (safe for partial update payloads); an empty slice
+// clears it. Child rows are delete-and-reinsert: order_items keep a text
+// snapshot, so order history survives renames.
+func (u *ProductUseCase) replaceChoices(productID int, variantInputs []entities.VariantInput, optionInputs []entities.OptionInput) error {
+	if variantInputs != nil {
+		variants := make([]entities.ProductVariant, 0, len(variantInputs))
+		for _, v := range variantInputs {
+			variants = append(variants, entities.ProductVariant{Name: v.Name, Price: v.Price})
+		}
+		if err := u.productRepo.ReplaceVariants(productID, variants); err != nil {
+			return err
+		}
+	}
+	if optionInputs != nil {
+		options := make([]entities.ProductOption, 0, len(optionInputs))
+		for _, o := range optionInputs {
+			options = append(options, entities.ProductOption{Name: o.Name, Price: o.Price})
+		}
+		if err := u.productRepo.ReplaceOptions(productID, options); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (u *ProductUseCase) Delete(id, branchID int) error {

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal, Pencil, Power } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, Power } from 'lucide-react'
 import { get, post, put } from '../api/client'
 import { getBranchId } from '../api/client'
 import type { Branch, Role, User } from '../api/types'
@@ -9,6 +9,12 @@ import {
   Button,
   DataTable,
   Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -47,8 +53,9 @@ export default function Users() {
     'User',
     <>
       <HeaderSearch onSearch={setQ} placeholder="Cari user..." />
-      <Button onClick={() => setOpen(true)}>
-        Tambah User
+      <Button onClick={() => setOpen(true)} size="sm" aria-label="Tambah User">
+        <Plus className="size-4" />
+        <span className="hidden sm:inline">Tambah User</span>
       </Button>
     </>,
   )
@@ -111,121 +118,123 @@ export default function Users() {
       )}
       {msg && <p className="text-sm font-medium text-primary">{msg}</p>}
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Tambah User"
-        description="Akun untuk mengakses sistem di cabang yang sedang dipilih."
-      >
-        <form className="flex flex-col gap-4" onSubmit={create}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="user-name">Nama</Label>
-            <Input
-              id="user-name"
-              placeholder="Nama"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="user-email">Email</Label>
-            <Input
-              id="user-email"
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="user-password">Password</Label>
-            <Input
-              id="user-password"
-              type="password"
-              placeholder="Minimal 8 karakter"
-              minLength={8}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-            />
-          </div>
-          {isSuper && (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah User</DialogTitle>
+            <DialogDescription>Akun untuk mengakses sistem di cabang yang sedang dipilih.</DialogDescription>
+          </DialogHeader>
+          <form id="user-form" className="flex flex-col gap-4" onSubmit={create}>
             <div className="flex flex-col gap-2">
-              <Label>Role</Label>
-              <Select
-                value={form.role}
-                onValueChange={(v) => setForm({ ...form, role: v as Role })}
-                options={roleOptions}
+              <Label htmlFor="user-name">Nama</Label>
+              <Input
+                id="user-name"
+                placeholder="Nama"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
               />
             </div>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit" disabled={isSuper && !branches?.length}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="user-email">Email</Label>
+              <Input
+                id="user-email"
+                type="email"
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="user-password">Password</Label>
+              <Input
+                id="user-password"
+                type="password"
+                placeholder="Minimal 8 karakter"
+                minLength={8}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+              />
+            </div>
+            {isSuper && (
+              <div className="flex flex-col gap-2">
+                <Label>Role</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm({ ...form, role: v as Role })}
+                  options={roleOptions}
+                />
+              </div>
+            )}
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="user-form" disabled={isSuper && !branches?.length}>
               Simpan
             </Button>
-          </div>
-        </form>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        title="Edit User"
-        description={editTarget ? `Ubah akun ${editTarget.name}.` : ''}
-      >
-        <form className="flex flex-col gap-4" onSubmit={saveEdit}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="edit-user-name">Nama</Label>
-            <Input
-              id="edit-user-name"
-              value={editForm.name}
-              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="edit-user-email">Email</Label>
-            <Input
-              id="edit-user-email"
-              type="email"
-              value={editForm.email}
-              onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="edit-user-password">Password baru</Label>
-            <Input
-              id="edit-user-password"
-              type="password"
-              placeholder="Kosongkan jika tidak diganti"
-              minLength={8}
-              value={editForm.password}
-              onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-            />
-          </div>
-          {isSuper && (
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>{editTarget ? `Ubah akun ${editTarget.name}.` : ''}</DialogDescription>
+          </DialogHeader>
+          <form id="edit-user-form" className="flex flex-col gap-4" onSubmit={saveEdit}>
             <div className="flex flex-col gap-2">
-              <Label>Role</Label>
-              <Select
-                value={editForm.role}
-                onValueChange={(v) => setEditForm({ ...editForm, role: v as Role })}
-                options={roleOptions}
+              <Label htmlFor="edit-user-name">Nama</Label>
+              <Input
+                id="edit-user-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                required
               />
             </div>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setEditOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit">Simpan</Button>
-          </div>
-        </form>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-user-email">Email</Label>
+              <Input
+                id="edit-user-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-user-password">Password baru</Label>
+              <Input
+                id="edit-user-password"
+                type="password"
+                placeholder="Kosongkan jika tidak diganti"
+                minLength={8}
+                value={editForm.password}
+                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+              />
+            </div>
+            {isSuper && (
+              <div className="flex flex-col gap-2">
+                <Label>Role</Label>
+                <Select
+                  value={editForm.role}
+                  onValueChange={(v) => setEditForm({ ...editForm, role: v as Role })}
+                  options={roleOptions}
+                />
+              </div>
+            )}
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="edit-user-form">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <UserTable

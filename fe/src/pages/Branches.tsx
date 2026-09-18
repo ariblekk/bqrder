@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal, Pencil, Power } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, Power } from 'lucide-react'
 import { get, post, put } from '../api/client'
 import type { Branch } from '../api/types'
 import { HeaderSearch } from '../components/HeaderSearch'
@@ -8,6 +8,12 @@ import {
   Button,
   DataTable,
   Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -35,7 +41,10 @@ export default function Branches() {
     'Cabang',
     <>
       <HeaderSearch onSearch={setQ} placeholder="Cari cabang..." />
-      <Button onClick={() => { setEditing(null); setForm(empty); setOpen(true) }}>Tambah Cabang</Button>
+      <Button onClick={() => { setEditing(null); setForm(empty); setOpen(true) }} size="sm" aria-label="Tambah Cabang">
+        <Plus className="size-4" />
+        <span className="hidden sm:inline">Tambah Cabang</span>
+      </Button>
     </>,
   )
 
@@ -115,45 +124,51 @@ export default function Branches() {
       <Dialog
         open={open}
         onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null) }}
-        title={editing ? 'Edit Cabang' : 'Tambah Cabang'}
-        description={editing ? `Perbarui data cabang "${editing.name}".` : 'Data cabang baru bisnis Anda.'}
       >
-        <form className="flex flex-col gap-4" onSubmit={submit}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="branch-name">Nama</Label>
-            <Input
-              id="branch-name"
-              placeholder="Nama"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="branch-address">Alamat</Label>
-            <Input
-              id="branch-address"
-              placeholder="Alamat"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="branch-phone">Telepon</Label>
-            <Input
-              id="branch-phone"
-              placeholder="Telepon"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit">Simpan</Button>
-          </div>
-        </form>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Cabang' : 'Tambah Cabang'}</DialogTitle>
+            <DialogDescription>
+              {editing ? `Perbarui data cabang "${editing.name}".` : 'Data cabang baru bisnis Anda.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form id="branch-form" className="flex flex-col gap-4" onSubmit={submit}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="branch-name">Nama</Label>
+              <Input
+                id="branch-name"
+                placeholder="Nama"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="branch-address">Alamat</Label>
+              <Input
+                id="branch-address"
+                placeholder="Alamat"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="branch-phone">Telepon</Label>
+              <Input
+                id="branch-phone"
+                placeholder="Telepon"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="branch-form">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <DataTable

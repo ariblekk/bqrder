@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import { Download, ExternalLink, MoreHorizontal, Pencil, Power, Printer } from 'lucide-react'
+import { Download, ExternalLink, MoreHorizontal, Pencil, Plus, Power, Printer } from 'lucide-react'
 import { get, post, put } from '../api/client'
 import type { Table } from '../api/types'
 import { QrImage } from '../components/QrImage'
@@ -9,7 +9,12 @@ import {
   Button,
   DataTable,
   Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -56,7 +61,10 @@ export default function Tables() {
     'Meja',
     <>
       <HeaderSearch onSearch={setQ} placeholder="Cari meja..." />
-      <Button onClick={() => setOpen(true)}>Tambah Meja</Button>
+      <Button onClick={() => setOpen(true)} size="sm" aria-label="Tambah Meja">
+        <Plus className="size-4" />
+        <span className="hidden sm:inline">Tambah Meja</span>
+      </Button>
     </>,
   )
 
@@ -144,75 +152,77 @@ export default function Tables() {
       )}
       {msg && <p className="text-sm font-medium text-primary">{msg}</p>}
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Tambah Meja"
-        description="Nomor meja dan kapasitas untuk cabang yang sedang dipilih."
-      >
-        <form className="flex flex-col gap-4" onSubmit={create}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="table-number">Nomor meja</Label>
-            <Input
-              id="table-number"
-              placeholder="T-01"
-              value={form.table_number}
-              onChange={(e) => setForm({ ...form, table_number: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="table-capacity">Kapasitas</Label>
-            <Input
-              id="table-capacity"
-              type="number"
-              min={1}
-              value={form.capacity}
-              onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit">Simpan</Button>
-          </div>
-        </form>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Meja</DialogTitle>
+            <DialogDescription>Nomor meja dan kapasitas untuk cabang yang sedang dipilih.</DialogDescription>
+          </DialogHeader>
+          <form id="table-form" className="flex flex-col gap-4" onSubmit={create}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="table-number">Nomor meja</Label>
+              <Input
+                id="table-number"
+                placeholder="T-01"
+                value={form.table_number}
+                onChange={(e) => setForm({ ...form, table_number: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="table-capacity">Kapasitas</Label>
+              <Input
+                id="table-capacity"
+                type="number"
+                min={1}
+                value={form.capacity}
+                onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
+              />
+            </div>
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="table-form">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        title="Edit Meja"
-        description={editTarget ? `Ubah meja ${editTarget.table_number}.` : ''}
-      >
-        <form className="flex flex-col gap-4" onSubmit={saveEdit}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="edit-table-number">Nomor meja</Label>
-            <Input
-              id="edit-table-number"
-              value={editForm.table_number}
-              onChange={(e) => setEditForm({ ...editForm, table_number: e.target.value })}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="edit-table-capacity">Kapasitas</Label>
-            <Input
-              id="edit-table-capacity"
-              type="number"
-              min={1}
-              value={editForm.capacity}
-              onChange={(e) => setEditForm({ ...editForm, capacity: Number(e.target.value) })}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={() => setEditOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit">Simpan</Button>
-          </div>
-        </form>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Meja</DialogTitle>
+            <DialogDescription>{editTarget ? `Ubah meja ${editTarget.table_number}.` : ''}</DialogDescription>
+          </DialogHeader>
+          <form id="edit-table-form" className="flex flex-col gap-4" onSubmit={saveEdit}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-table-number">Nomor meja</Label>
+              <Input
+                id="edit-table-number"
+                value={editForm.table_number}
+                onChange={(e) => setEditForm({ ...editForm, table_number: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-table-capacity">Kapasitas</Label>
+              <Input
+                id="edit-table-capacity"
+                type="number"
+                min={1}
+                value={editForm.capacity}
+                onChange={(e) => setEditForm({ ...editForm, capacity: Number(e.target.value) })}
+              />
+            </div>
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button type="submit" form="edit-table-form">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <Dialog
@@ -220,41 +230,44 @@ export default function Tables() {
         onOpenChange={(o) => {
           if (!o) setQrTarget(null)
         }}
-        title={`Cetak QR Meja ${qrTarget?.table_number}`}
-        contentClassName="sm:max-w-xl"
       >
-        <div className="flex flex-col items-center gap-4">
-          {qrTarget && <QrImage value={qrTarget.qr_link} size={240} onData={setQrUrl} />}
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            disabled={!qrUrl}
-            onClick={() => {
-              if (qrTarget && qrUrl) {
-                const a = document.createElement('a')
-                a.href = qrUrl
-                a.download = `qr-meja-${qrTarget.table_number}.png`
-                a.click()
-              }
-            }}
-          >
-            <Download />
-            Download
-          </Button>
-          <Button
-            disabled={!qrUrl}
-            onClick={() => {
-              if (qrTarget && qrUrl) {
-                printTable(qrTarget, qrUrl)
-                setQrTarget(null)
-              }
-            }}
-          >
-            <Printer />
-            Cetak
-          </Button>
-        </DialogFooter>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Cetak QR Meja {qrTarget?.table_number}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4">
+            {qrTarget && <QrImage value={qrTarget.qr_link} size={240} onData={setQrUrl} />}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={!qrUrl}
+              onClick={() => {
+                if (qrTarget && qrUrl) {
+                  const a = document.createElement('a')
+                  a.href = qrUrl
+                  a.download = `qr-meja-${qrTarget.table_number}.png`
+                  a.click()
+                }
+              }}
+            >
+              <Download />
+              Download
+            </Button>
+            <Button
+              disabled={!qrUrl}
+              onClick={() => {
+                if (qrTarget && qrUrl) {
+                  printTable(qrTarget, qrUrl)
+                  setQrTarget(null)
+                }
+              }}
+            >
+              <Printer />
+              Cetak
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <DataTable

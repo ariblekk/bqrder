@@ -12,7 +12,18 @@ export {
 } from './card'
 export { ConfirmDialog } from './ConfirmDialog'
 export { DataTable } from './DataTable'
-export { Dialog, DialogFooter } from './dialog'
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from './dialog'
 export {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +36,16 @@ export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 export { Input } from './input'
 export { Label } from './label'
 export { Select, type SelectOption } from './select'
+export {
+  Sheet,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from './sheet'
 export { Skeleton } from './skeleton'
 export { StatusTag } from './StatusTag'
 export { ToastProvider, useToast } from './Toast'
