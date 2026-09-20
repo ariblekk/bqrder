@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { get } from "../api/client";
+import { subscribePublicOrderEvents } from "../api/sse";
 import type { Order } from "../api/types";
 import { Badge, Button, Card, CardContent, Skeleton } from "../components/ui";
 import { useAsync } from "../hooks/useAsync";
@@ -57,9 +58,9 @@ export default function OrderStatus() {
   );
 
   useEffect(() => {
-    const t = setInterval(reload, 5000);
-    return () => clearInterval(t);
-  }, [reload]);
+    if (!orderNumber) return;
+    return subscribePublicOrderEvents(orderNumber, () => reload());
+  }, [orderNumber, reload]);
 
   const o = data?.data;
   const cancelled = o?.status === "cancelled";
@@ -217,13 +218,6 @@ export default function OrderStatus() {
                       <span className="block truncate text-sm font-medium">
                         {it.product_name}
                       </span>
-                      {(it.variant_name || it.option_names) && (
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {[it.variant_name, it.option_names]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      )}
                       {it.notes && (
                         <span className="block truncate text-xs text-muted-foreground">
                           Catatan: {it.notes}
@@ -233,7 +227,7 @@ export default function OrderStatus() {
                     <span className="text-sm">{rupiah(it.subtotal)}</span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between pt-3">
+                <div className="flex items-center justify-between py-3">
                   <span className="text-sm text-muted-foreground">
                     Pembayaran
                   </span>
@@ -251,12 +245,12 @@ export default function OrderStatus() {
                       : "Belum dibayar"}
                   </Badge>
                 </div>
-                <p className="flex items-center gap-1.5 pt-3 text-xs text-muted-foreground">
-                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
-                  Halaman menyegarkan otomatis setiap 5 detik.
-                </p>
               </CardContent>
             </Card>
+            <p className="flex items-center justify-center gap-1.5 pt-3 text-xs text-muted-foreground">
+              <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+              Halaman diperbarui otomatis secara langsung.
+            </p>
           </>
         )}
       </main>

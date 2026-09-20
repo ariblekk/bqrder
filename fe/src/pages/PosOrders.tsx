@@ -40,7 +40,7 @@ export default function PosOrders() {
           const fromQr = o.payment_method === 'gateway'
           const notes = o.items.filter((it) => it.notes).map((it) => `${it.product_name}: ${it.notes}`)
           const itemLabel = (it: (typeof o.items)[number]) =>
-            `${it.quantity}x ${it.product_name}${it.variant_name || it.option_names ? ` (${[it.variant_name, it.option_names].filter(Boolean).join(', ')})` : ''}`
+            `${it.quantity}x ${it.product_name}`
           return (
             <Card
               key={o.id}

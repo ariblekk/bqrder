@@ -1,14 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, ShoppingBag } from "lucide-react";
+import { ArrowRight, ShoppingBag, ShoppingCart } from "lucide-react";
 import { get } from "../api/client";
-import type {
-  MenuCategory,
-  ProductOption,
-  ProductVariant,
-  Table,
-  MenuProduct,
-} from "../api/types";
+import type { MenuCategory, Table, MenuProduct } from "../api/types";
 import ProductPicker, { type PickChoice } from "../components/ProductPicker";
 import {
   Badge,
@@ -29,36 +23,42 @@ const QR_KEY = "qrdigo_qr";
 export interface CartLine {
   key: string;
   product: MenuProduct;
-  variant: ProductVariant | null;
-  options: ProductOption[];
+  variant_id?: number;
+  option_ids?: number[];
   qty: number;
   notes: string;
 }
 
-const lineVariant = (l: CartLine) => l.variant?.price ?? l.product.price;
-export const linePrice = (l: CartLine) =>
-  lineVariant(l) + l.options.reduce((s, o) => s + o.price, 0);
+export const linePrice = (l: CartLine) => {
+  const variant = l.product.variants?.find((v) => v.id === l.variant_id);
+  const variantPrice = variant?.price ?? l.product.price;
+  const optionsPrice =
+    l.option_ids?.reduce((sum, oid) => {
+      const opt = l.product.options?.find((o) => o.id === oid);
+      return sum + (opt?.price ?? 0);
+    }, 0) ?? 0;
+  return variantPrice + optionsPrice;
+};
 
 export function lineKey(
   p: { id: number },
-  variant: ProductVariant | null,
-  options: ProductOption[],
+  variant_id?: number,
+  option_ids?: number[],
 ) {
-  const o = [...options]
-    .sort((a, b) => a.id - b.id)
-    .map((x) => x.id)
-    .join(",");
-  return `${p.id}:${variant?.id ?? 0}:${o}`;
+  const opts = option_ids
+    ? [...option_ids].sort((a, b) => a - b).join(",")
+    : "";
+  return `${p.id}:${variant_id ?? 0}:${opts}`;
 }
 
 export function getCart(): CartLine[] {
   try {
     const raw: any[] = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
     return raw.map((l) => ({
-      key: l.key ?? `${l.product.id}:0::`,
+      key: l.key ?? `${l.product.id}:0:`,
       product: l.product,
-      variant: l.variant ?? null,
-      options: l.options ?? [],
+      variant_id: l.variant_id,
+      option_ids: l.option_ids,
       qty: l.qty,
       notes: l.notes ?? "",
     }));
@@ -74,6 +74,115 @@ export function getQr() {
 }
 
 const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+
+// Featured carousel component
+function FeaturedCarousel({ products }: { products: MenuProduct[] }) {
+  const [index, setIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemWidth = 300; // card width + gap
+
+  // Auto-scroll
+  useEffect(() => {
+    if (products.length <= 1) return;
+    const timer = setInterval(() => {
+      setIndex((i) => (i + 1) % products.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [products.length]);
+
+  const scrollTo = (i: number) => {
+    setIndex(i);
+    containerRef.current?.scrollTo({
+      left: i * itemWidth,
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <div className="px-4 py-3 sm:px-6">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-primary">
+          ⭐ Pilihan Unggulan
+        </h2>
+        <div className="flex gap-1">
+          {products.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => scrollTo(i)}
+              className={cn(
+                "size-2 rounded-full transition-colors",
+                i === index ? "bg-primary" : "bg-primary/30",
+              )}
+              aria-label={`Go to slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+      <div
+        ref={containerRef}
+        className="no-scrollbar flex gap-3 overflow-x-auto pb-2"
+        style={{ scrollSnapType: "x mandatory" }}
+      >
+        {products.map((p, i) => (
+          <FeaturedCard key={p.id} product={p} index={i} active={i === index} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeaturedCard({
+  product,
+  active,
+}: {
+  product: MenuProduct;
+  index: number;
+  active: boolean;
+}) {
+  const soldOut = !product.is_unlimited && product.stock === 0;
+  return (
+    <button
+      type="button"
+      disabled={soldOut}
+      className={cn(
+        "relative shrink-0 w-64 flex-snap-start overflow-hidden rounded-xl bg-background shadow-md transition-shadow",
+        active && "shadow-lg ring-2 ring-primary/20",
+      )}
+      onClick={() => {}}
+    >
+      {product.image_url ? (
+        <img
+          className="w-full h-36 object-cover"
+          src={product.image_url}
+          alt={product.name}
+          loading="lazy"
+          onError={(e) => (e.currentTarget.style.display = "none")}
+        />
+      ) : (
+        <div className="w-full h-36 bg-muted flex items-center justify-center text-xs text-muted-foreground">
+          No image
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+        <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+        {product.description && (
+          <p className="text-xs opacity-80 truncate mt-0.5">
+            {product.description}
+          </p>
+        )}
+        <div className="mt-1.5 flex items-center justify-between">
+          <span className="text-sm font-bold">{rupiah(product.price)}</span>
+          {soldOut && (
+            <Badge variant="destructive" className="text-[10px]">
+              Habis
+            </Badge>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
 
 export default function Menu() {
   const [params] = useSearchParams();
@@ -101,16 +210,18 @@ export default function Menu() {
   const count = cart.reduce((s, l) => s + l.qty, 0);
 
   const cats = data?.data ?? [];
+  // Filter out featured category (id=0) from regular categories
+  const regularCats = cats.filter((c) => c.id !== 0);
   const products = active
-    ? (cats.find((c) => c.name === active)?.products ?? [])
-    : cats.flatMap((c) => c.products);
+    ? (regularCats.find((c) => c.name === active)?.products ?? [])
+    : regularCats.flatMap((c) => c.products);
 
   function adjustLine(
     p: MenuProduct,
-    choice: { variant: ProductVariant | null; options: ProductOption[] },
+    choice: { variant_id?: number; option_ids?: number[] },
     delta: number,
   ) {
-    const key = lineKey(p, choice.variant, choice.options);
+    const key = lineKey(p, choice.variant_id, choice.option_ids);
     setCartState((prev) => {
       const found = prev.find((l) => l.key === key);
       const next = found
@@ -122,8 +233,8 @@ export default function Menu() {
             {
               key,
               product: p,
-              variant: choice.variant,
-              options: choice.options,
+              variant_id: choice.variant_id,
+              option_ids: choice.option_ids,
               qty: delta,
               notes: "",
             },
@@ -131,10 +242,6 @@ export default function Menu() {
       setCart(next);
       return next;
     });
-  }
-
-  function addQuick(p: MenuProduct, delta: number) {
-    adjustLine(p, { variant: null, options: [] }, delta);
   }
 
   function openPicker(p: MenuProduct) {
@@ -145,7 +252,7 @@ export default function Menu() {
     if (!picker) return;
     adjustLine(
       picker,
-      { variant: choice.variant, options: choice.options },
+      { variant_id: choice.variant_id, option_ids: choice.option_ids },
       choice.qty,
     );
   }
@@ -161,7 +268,7 @@ export default function Menu() {
             Selamat datang di
           </div>
           <h1 className="mt-0.5 text-2xl font-bold tracking-tight">
-            {table?.data?.branch_name || "Menu"}
+            {table?.data?.branch_name || "Kedai Kami"}
           </h1>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-primary-foreground/80">
             {table?.data && (
@@ -184,13 +291,20 @@ export default function Menu() {
           </p>
         )}
 
+        {/* Featured carousel - only show on "Semua" tab */}
+        {active === "" && cats.some((c) => c.id === 0) && (
+          <FeaturedCarousel
+            products={cats.find((c) => c.id === 0)?.products ?? []}
+          />
+        )}
+
         {cats.length > 0 && (
           <div className="sticky top-0 z-10 px-4 py-2 backdrop-blur sm:px-6">
             <div className="no-scrollbar flex gap-2 overflow-x-auto">
               <Pill active={active === ""} onClick={() => setActive("")}>
                 Semua
               </Pill>
-              {cats.map((c) => (
+              {regularCats.map((c) => (
                 <Pill
                   key={c.id}
                   active={active === c.name}
@@ -235,13 +349,8 @@ export default function Menu() {
             const qty = cart
               .filter((l) => l.product.id === p.id)
               .reduce((s, l) => s + l.qty, 0);
-            const soldOut = p.stock === 0;
+            const soldOut = !p.is_unlimited && p.stock === 0;
             const hasSales = (p.total_sold ?? 0) > 0;
-            const minPrice =
-              p.variants.length > 0
-                ? Math.min(...p.variants.map((v) => v.price))
-                : p.price;
-            const hasChoices = p.variants.length > 0 || p.options.length > 0;
             return (
               <Card
                 key={p.id}
@@ -284,12 +393,6 @@ export default function Menu() {
                         {p.description}
                       </p>
                     )}
-                    {/* {hasChoices && (
-                      <p className="mt-0.5 text-xs font-medium text-primary/80">
-                        {p.variants.length > 0 && `Pilih varian · `}
-                        {p.options.length > 0 && 'Ada pilihan tambahan'}
-                      </p>
-                    )} */}
                     {hasSales && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         Terjual {p.total_sold} item
@@ -297,28 +400,9 @@ export default function Menu() {
                     )}
                     <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
                       <span className="text-sm font-bold">
-                        {hasChoices && "mulai "}
-                        {rupiah(minPrice)}
+                        {rupiah(p.price)}
                       </span>
-                      {hasChoices ? (
-                        <div className="flex items-center gap-1.5">
-                          {qty > 0 && (
-                            <span className="text-xs font-semibold text-muted-foreground">
-                              {qty}x
-                            </span>
-                          )}
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            className="rounded-full"
-                            disabled={soldOut}
-                            aria-label={`Tambah ${p.name}`}
-                            onClick={() => openPicker(p)}
-                          >
-                            +
-                          </Button>
-                        </div>
-                      ) : qty === 0 ? (
+                      <div className="relative">
                         <Button
                           size="icon-sm"
                           variant="outline"
@@ -327,32 +411,14 @@ export default function Menu() {
                           aria-label={`Tambah ${p.name}`}
                           onClick={() => openPicker(p)}
                         >
-                          +
+                          <ShoppingCart className="size-4" />
                         </Button>
-                      ) : (
-                        <div className="flex h-8 items-center gap-1 rounded-full border px-1">
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className="size-6 rounded-full"
-                            onClick={() => addQuick(p, -1)}
-                          >
-                            −
-                          </Button>
-                          <span className="min-w-5 text-center text-sm font-semibold">
+                        {qty > 0 && (
+                          <span className="pointer-events-none absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                             {qty}
                           </span>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className="size-6 rounded-full"
-                            disabled={soldOut}
-                            onClick={() => openPicker(p)}
-                          >
-                            +
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -364,7 +430,7 @@ export default function Menu() {
 
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-4 z-20 px-4">
-          <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-3 rounded-2xl bg-primary px-4 text-primary-foreground shadow-xl">
+          <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-3 rounded-2xl bg-primary px-4 text-primary-foreground">
             <div className="min-w-0">
               <p className="text-xs opacity-80">{count} item dipilih</p>
               <p className="truncate text-lg font-bold leading-tight">
@@ -374,7 +440,7 @@ export default function Menu() {
             <Button
               asChild
               size="lg"
-              className="h-10 bg-background px-5 text-foreground hover:bg-background/90"
+              className="h-10 bg-background px-5 text-foreground hover:bg-background/90 rounded-2xl"
             >
               <Link to="/checkout" className="flex items-center gap-1.5">
                 Lihat Pesanan

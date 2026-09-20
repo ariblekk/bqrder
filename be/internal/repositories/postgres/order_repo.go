@@ -59,11 +59,10 @@ func (r *OrderRepo) Create(order *entities.Order) (int, error) {
 func (r *OrderRepo) CreateOrderItem(item *entities.OrderItem) (int, error) {
 	var id int
 	err := r.q.QueryRow(`
-		INSERT INTO order_items (order_id, product_id, quantity, price, notes, variant_name, option_names)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO order_items (order_id, product_id, variant_id, quantity, price, notes)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
-	`, item.OrderID, item.ProductID, item.Quantity, item.Price, item.Notes,
-		item.VariantName, item.OptionNames).Scan(&id)
+	`, item.OrderID, item.ProductID, item.VariantID, item.Quantity, item.Price, item.Notes).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -170,14 +169,48 @@ func (r *OrderRepo) GetOrderItems(orderID int) ([]entities.OrderItem, error) {
 	return items[orderID], nil
 }
 
+func (r *OrderRepo) CreateOrderItemOptions(itemID int, optionIDs []int) error {
+	for _, oid := range optionIDs {
+		if _, err := r.q.Exec(
+			`INSERT INTO order_item_options (order_item_id, option_id) VALUES ($1, $2)`,
+			itemID, oid,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *OrderRepo) GetOrderItemOptions(itemIDs []int) (map[int][]int, error) {
+	out := map[int][]int{}
+	if len(itemIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.q.Query(`
+		SELECT order_item_id, option_id FROM order_item_options
+		WHERE order_item_id = ANY($1)
+	`, pq.Array(itemIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var itemID, optionID int
+		if err := rows.Scan(&itemID, &optionID); err != nil {
+			return nil, err
+		}
+		out[itemID] = append(out[itemID], optionID)
+	}
+	return out, rows.Err()
+}
+
 func (r *OrderRepo) GetOrderItemsBatch(orderIDs []int) (map[int][]entities.OrderItem, error) {
 	if len(orderIDs) == 0 {
 		return map[int][]entities.OrderItem{}, nil
 	}
 
 	rows, err := r.q.Query(`
-		SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.notes,
-		       oi.variant_name, oi.option_names,
+		SELECT oi.id, oi.order_id, oi.product_id, oi.variant_id, oi.quantity, oi.price, oi.notes,
 		       p.name AS product_name,
 		       oi.quantity::numeric * oi.price AS subtotal
 		FROM order_items oi
@@ -193,9 +226,14 @@ func (r *OrderRepo) GetOrderItemsBatch(orderIDs []int) (map[int][]entities.Order
 	items := map[int][]entities.OrderItem{}
 	for rows.Next() {
 		var it entities.OrderItem
-		if err := rows.Scan(&it.ID, &it.OrderID, &it.ProductID, &it.Quantity, &it.Price,
-			&it.Notes, &it.VariantName, &it.OptionNames, &it.ProductName, &it.Subtotal); err != nil {
+		var variantID sql.NullInt64
+		if err := rows.Scan(&it.ID, &it.OrderID, &it.ProductID, &variantID, &it.Quantity, &it.Price,
+			&it.Notes, &it.ProductName, &it.Subtotal); err != nil {
 			return nil, err
+		}
+		if variantID.Valid {
+			v := int(variantID.Int64)
+			it.VariantID = &v
 		}
 		items[it.OrderID] = append(items[it.OrderID], it)
 	}

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { cn } from "../lib/utils";
-import type { ProductOption, ProductVariant } from "../api/types";
+import type { ProductVariant, ProductOption } from "../api/types";
 import {
   Button,
   Sheet,
@@ -13,9 +12,9 @@ import {
 const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
 export interface PickChoice {
-  variant: ProductVariant | null;
-  options: ProductOption[];
   qty: number;
+  variant_id?: number;
+  option_ids?: number[];
 }
 
 export interface PickerProduct {
@@ -24,6 +23,7 @@ export interface PickerProduct {
   price: number;
   image_url?: string;
   stock: number;
+  is_unlimited: boolean;
   variants?: ProductVariant[];
   options?: ProductOption[];
 }
@@ -39,15 +39,15 @@ export default function ProductPicker({
   onOpenChange: (open: boolean) => void;
   onConfirm: (choice: PickChoice) => void;
 }) {
+  const [qty, setQty] = useState(1);
   const [variant, setVariant] = useState<ProductVariant | null>(null);
   const [options, setOptions] = useState<ProductOption[]>([]);
-  const [qty, setQty] = useState(1);
 
   useEffect(() => {
     if (open) {
+      setQty(1);
       setVariant(product?.variants?.length ? product.variants[0] : null);
       setOptions([]);
-      setQty(1);
     }
   }, [open, product]);
 
@@ -92,7 +92,6 @@ export default function ProductPicker({
 
           {variants.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Pilih Varian</p>
               <div className="flex flex-wrap gap-2">
                 {variants.map((v) => (
                   <button
@@ -109,9 +108,6 @@ export default function ProductPicker({
                     <span className="block">
                       {v.name} - {rupiah(v.price)}
                     </span>
-                    {/* <span className={cn('text-xs', variant?.id === v.id ? 'text-primary' : 'text-muted-foreground')}>
-                    {rupiah(v.price)}
-                  </span> */}
                   </button>
                 ))}
               </div>
@@ -175,7 +171,7 @@ export default function ProductPicker({
                 size="icon-sm"
                 variant="ghost"
                 className="size-7 rounded-full"
-                disabled={product.stock > 0 && qty >= product.stock}
+                disabled={!product.is_unlimited && qty >= product.stock}
                 aria-label="Tambah"
                 onClick={() => setQty((q) => q + 1)}
               >
@@ -190,9 +186,13 @@ export default function ProductPicker({
 
           <SheetFooter>
             <Button
-              disabled={product.stock === 0}
+              disabled={!product.is_unlimited && product.stock === 0}
               onClick={() => {
-                onConfirm({ variant, options, qty });
+                onConfirm({
+                  qty,
+                  variant_id: variant?.id,
+                  option_ids: options.map((o) => o.id),
+                });
                 onOpenChange(false);
               }}
             >
@@ -203,4 +203,8 @@ export default function ProductPicker({
       </SheetContent>
     </Sheet>
   );
+}
+
+function cn(...classes: (string | undefined | null | false)[]) {
+  return classes.filter(Boolean).join(" ");
 }

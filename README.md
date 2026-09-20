@@ -115,13 +115,12 @@ qrdigo/
 
 1. **Env produksi** — salin dan isi semua nilai kuat:
    ```ps1
-   cd be
-   cp .env.example .env
+   cp .env.example .env   # di root repo
    # APP_ENV=production
    # JWT_SECRET / JWT_REFRESH_SECRET → dua string acak >=32 char (openssl rand -hex 32)
    # DB_*           → pakai Supabase pooler (port 6543, sslmode=require)
-   # BASE_URL, FRONTEND_URL → domain publik (http://...). Backend menolak start
-   #                          jika URL masih localhost atau secret masih lemah.
+   # FRONTEND_URL → domain publik (http://...). Backend menolak start
+   #                 jika URL masih localhost atau secret masih lemah.
    ```
 2. **Bangun & jalankan** (dari root repo):
    ```ps1

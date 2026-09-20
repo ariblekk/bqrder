@@ -55,14 +55,16 @@ type ProductRepository interface {
 	ListByBranch(branchID int, limit, offset int) ([]entities.Product, error)
 	CountByBranch(branchID int) (int, error)
 	ListActiveByBranch(branchID int) ([]entities.Product, error)
+	ListFeaturedByBranch(branchID int) ([]entities.Product, error)
 	SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error)
 	Update(product *entities.Product) error
 	UpdateImage(id int, imageURL string) error
-	Delete(id int) error
 	DecreaseStock(productID, quantity int) error
+	// Variants
 	ListVariants(productIDs []int) (map[int][]entities.ProductVariant, error)
-	ListOptions(productIDs []int) (map[int][]entities.ProductOption, error)
 	ReplaceVariants(productID int, variants []entities.ProductVariant) error
+	// Options
+	ListOptions(productIDs []int) (map[int][]entities.ProductOption, error)
 	ReplaceOptions(productID int, options []entities.ProductOption) error
 }
 
@@ -73,6 +75,8 @@ type AuditRepository interface {
 type OrderRepository interface {
 	Create(order *entities.Order) (int, error)
 	CreateOrderItem(item *entities.OrderItem) (int, error)
+	CreateOrderItemOptions(itemID int, optionIDs []int) error
+	GetOrderItemOptions(itemIDs []int) (map[int][]int, error)
 	FindByIDAndBranch(id, branchID int) (*entities.Order, error)
 	FindByOrderNumber(number string) (*entities.Order, error)
 	ListTodayByBranch(branchID int) ([]entities.Order, error)

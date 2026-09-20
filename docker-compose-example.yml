@@ -1,38 +1,41 @@
+# Example stack (Postgres + API + web behind nginx). Copy this file to
+# `docker-compose.yml` and copy `.env.example` to `.env`, then fill strong
+# values. The real `docker-compose.yml` and `.env` are gitignored so only this
+# example lives in the repo — never commit secrets.
+#
+#   cp docker-compose-example.yml docker-compose.yml
+#   cp .env.example .env
+#   docker compose up -d --build
 services:
   postgres:
     image: postgres:16-alpine
     container_name: qrdigo-db
     environment:
-      POSTGRES_USER: qrdigo
-      POSTGRES_PASSWORD: qrdigo
-      POSTGRES_DB: qrdigo
+      POSTGRES_USER: ${DB_USER:-qrdigo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      POSTGRES_DB: ${DB_NAME:-qrdigo}
     volumes:
       - qrdigo_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qrdigo -d qrdigo"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-qrdigo} -d ${DB_NAME:-qrdigo}"]
       interval: 5s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
   app:
-    image: ariblekk/qrdigo:v1.0.3
+    image: ariblekk/qrdigo:local
     build:
       context: .
       args:
         VITE_API_URL: /api/v1
     container_name: qrdigo
+    env_file: .env
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_USER: qrdigo
-      DB_PASSWORD: qrdigo
-      DB_NAME: qrdigo
       DB_SSLMODE: disable
-      JWT_SECRET: cf11918922c61d19e5787aed6cf15f34
-      JWT_REFRESH_SECRET: 7ab8ab31f9621f3a4c6d88ea089c34e5
       UPLOAD_PATH: /app/uploads
-      FRONTEND_URL: http://localhost:2301
       TRUSTED_PROXIES: 127.0.0.1/8
     ports:
       - "2301:80"

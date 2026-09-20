@@ -155,7 +155,7 @@ func (h *POSHandler) CreateDirectOrder(c *gin.Context) {
 }
 
 func (h *POSHandler) StreamEvents(c *gin.Context) {
-	branchID := getBranchID(c)
+	branchID := getEffectiveBranchID(c)
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")

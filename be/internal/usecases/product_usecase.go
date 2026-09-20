@@ -59,14 +59,37 @@ func (u *ProductUseCase) Create(branchID int, req *entities.CreateProductRequest
 		isActive = *req.IsActive
 	}
 
+	isFeatured := false
+	if req.IsFeatured != nil {
+		isFeatured = *req.IsFeatured
+	}
+
+	featuredOrder := 0
+	if req.FeaturedOrder != nil {
+		featuredOrder = *req.FeaturedOrder
+	}
+
+	isUnlimited := false
+	if req.IsUnlimited != nil {
+		isUnlimited = *req.IsUnlimited
+	}
+
+	stock := req.Stock
+	if isUnlimited {
+		stock = 0
+	}
+
 	product := &entities.Product{
-		BranchID:    branchID,
-		CategoryID:  req.CategoryID,
-		Name:        req.Name,
-		Description: req.Description,
-		Price:       req.Price,
-		Stock:       req.Stock,
-		IsActive:    isActive,
+		BranchID:      branchID,
+		CategoryID:    req.CategoryID,
+		Name:          req.Name,
+		Description:   req.Description,
+		Price:         req.Price,
+		Stock:         stock,
+		IsUnlimited:   isUnlimited,
+		IsActive:      isActive,
+		IsFeatured:    isFeatured,
+		FeaturedOrder: featuredOrder,
 	}
 
 	id, err := u.productRepo.Create(product)
@@ -86,6 +109,19 @@ func (u *ProductUseCase) GetAll(branchID, page, limit int) ([]entities.Product, 
 	if err != nil {
 		return nil, 0, err
 	}
+
+	// Load variants and options for each product
+	productIDs := make([]int, len(products))
+	for i, p := range products {
+		productIDs[i] = p.ID
+	}
+	variants, _ := u.productRepo.ListVariants(productIDs)
+	options, _ := u.productRepo.ListOptions(productIDs)
+	for i := range products {
+		products[i].Variants = variants[products[i].ID]
+		products[i].Options = options[products[i].ID]
+	}
+
 	total, err := u.productRepo.CountByBranch(branchID)
 	if err != nil {
 		return nil, 0, err
@@ -118,11 +154,23 @@ func (u *ProductUseCase) Update(id, branchID int, req *entities.UpdateProductReq
 	if req.Price > 0 {
 		product.Price = req.Price
 	}
-	if req.Stock >= 0 {
-		product.Stock = req.Stock
+	if req.Stock != nil {
+		product.Stock = *req.Stock
+	}
+	if req.IsUnlimited != nil {
+		product.IsUnlimited = *req.IsUnlimited
+	}
+	if product.IsUnlimited {
+		product.Stock = 0
 	}
 	if req.IsActive != nil {
 		product.IsActive = *req.IsActive
+	}
+	if req.IsFeatured != nil {
+		product.IsFeatured = *req.IsFeatured
+	}
+	if req.FeaturedOrder != nil {
+		product.FeaturedOrder = *req.FeaturedOrder
 	}
 
 	if err := u.productRepo.Update(product); err != nil {
@@ -134,39 +182,6 @@ func (u *ProductUseCase) Update(id, branchID int, req *entities.UpdateProductReq
 	}
 
 	return u.productRepo.FindByID(id)
-}
-
-// replaceChoices stores the product's variants and options. A nil input leaves
-// that group untouched (safe for partial update payloads); an empty slice
-// clears it. Child rows are delete-and-reinsert: order_items keep a text
-// snapshot, so order history survives renames.
-func (u *ProductUseCase) replaceChoices(productID int, variantInputs []entities.VariantInput, optionInputs []entities.OptionInput) error {
-	if variantInputs != nil {
-		variants := make([]entities.ProductVariant, 0, len(variantInputs))
-		for _, v := range variantInputs {
-			variants = append(variants, entities.ProductVariant{Name: v.Name, Price: v.Price})
-		}
-		if err := u.productRepo.ReplaceVariants(productID, variants); err != nil {
-			return err
-		}
-	}
-	if optionInputs != nil {
-		options := make([]entities.ProductOption, 0, len(optionInputs))
-		for _, o := range optionInputs {
-			options = append(options, entities.ProductOption{Name: o.Name, Price: o.Price})
-		}
-		if err := u.productRepo.ReplaceOptions(productID, options); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (u *ProductUseCase) Delete(id, branchID int) error {
-	if _, err := u.productRepo.FindByIDAndBranch(id, branchID); err != nil {
-		return err
-	}
-	return u.productRepo.Delete(id)
 }
 
 func (u *ProductUseCase) UploadImage(id, branchID int, upload *UploadedFile) (*entities.Product, error) {
@@ -221,4 +236,26 @@ func (u *ProductUseCase) UploadImage(id, branchID int, upload *UploadedFile) (*e
 	}
 
 	return u.productRepo.FindByID(id)
+}
+
+func (u *ProductUseCase) replaceChoices(productID int, variantInputs []entities.VariantInput, optionInputs []entities.OptionInput) error {
+	if variantInputs != nil {
+		variants := make([]entities.ProductVariant, 0, len(variantInputs))
+		for _, v := range variantInputs {
+			variants = append(variants, entities.ProductVariant{Name: v.Name, Price: v.Price, SortOrder: v.SortOrder})
+		}
+		if err := u.productRepo.ReplaceVariants(productID, variants); err != nil {
+			return err
+		}
+	}
+	if optionInputs != nil {
+		options := make([]entities.ProductOption, 0, len(optionInputs))
+		for _, o := range optionInputs {
+			options = append(options, entities.ProductOption{Name: o.Name, Price: o.Price, SortOrder: o.SortOrder})
+		}
+		if err := u.productRepo.ReplaceOptions(productID, options); err != nil {
+			return err
+		}
+	}
+	return nil
 }

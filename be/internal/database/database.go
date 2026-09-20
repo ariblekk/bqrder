@@ -52,23 +52,43 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_branch ON audit_logs(branch_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity, entity_id);
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_unlimited BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE products SET is_unlimited = TRUE WHERE stock IS NULL;
+UPDATE products SET stock = 0 WHERE stock IS NULL;
+ALTER TABLE products ALTER COLUMN stock SET NOT NULL;
+ALTER TABLE products ALTER COLUMN stock SET DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_order INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_products_featured ON products(branch_id, is_featured, featured_order) WHERE is_featured = TRUE;
+
 CREATE TABLE IF NOT EXISTS product_variants (
-    id         SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    name       VARCHAR(100) NOT NULL,
-    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          SERIAL PRIMARY KEY,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name        VARCHAR(100) NOT NULL,
+    price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
+
 CREATE TABLE IF NOT EXISTS product_options (
-    id         SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    name       VARCHAR(100) NOT NULL,
-    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          SERIAL PRIMARY KEY,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name        VARCHAR(100) NOT NULL,
+    price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_product_options_product ON product_options(product_id);
-ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_name TEXT DEFAULT '';
-ALTER TABLE order_items ADD COLUMN IF NOT EXISTS option_names TEXT DEFAULT '';`)
+
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_order_items_variant ON order_items(variant_id);
+
+CREATE TABLE IF NOT EXISTS order_item_options (
+    order_item_id  INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+    option_id      INTEGER NOT NULL REFERENCES product_options(id) ON DELETE CASCADE,
+    PRIMARY KEY (order_item_id, option_id)
+);`)
 	return err
 }

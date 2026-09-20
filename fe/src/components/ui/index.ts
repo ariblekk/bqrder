@@ -10,7 +10,6 @@ export {
   CardHeader,
   CardTitle,
 } from './card'
-export { ConfirmDialog } from './ConfirmDialog'
 export { DataTable } from './DataTable'
 export {
   Dialog,

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { get } from "../api/client";
+import { subscribeOrderEvents } from "../api/sse";
 import type { SalesSummary } from "../api/types";
 import { Button } from "../components/ui";
 import { useAsync } from "../hooks/useAsync";
@@ -31,8 +32,7 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    const t = setInterval(reload, 15000);
-    return () => clearInterval(t);
+    return subscribeOrderEvents(reload);
   }, [reload]);
 
   const cards = s

@@ -37,7 +37,7 @@ export function setBranchId(id: number | null) {
   else localStorage.removeItem(BRANCH_KEY);
 }
 
-async function refreshToken(): Promise<boolean> {
+export async function refreshToken(): Promise<boolean> {
   const auth = loadAuth();
   if (!auth?.refresh_token) return false;
   try {

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -105,4 +107,60 @@ func (h *PublicHandler) GetOrderStatus(c *gin.Context) {
 		return
 	}
 	response.Success(c, "order status retrieved", order)
+}
+
+// StreamOrderEvents pushes live status changes for a single order to the
+// customer's status page. The branch stream is filtered to this order so no
+// other customer's events leak.
+func (h *PublicHandler) StreamOrderEvents(c *gin.Context) {
+	orderNumber := c.Param("order_number")
+	if orderNumber == "" {
+		response.BadRequest(c, "order_number is required")
+		return
+	}
+
+	order, err := h.publicUseCase.GetOrderStatus(orderNumber)
+	if err != nil {
+		response.NotFound(c, "order not found")
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+	c.Writer.WriteHeader(200)
+
+	ch, unsub := h.hub.Subscribe(order.BranchID)
+	defer unsub()
+
+	write := func(s string) bool {
+		if _, err := c.Writer.WriteString(s); err != nil {
+			return false
+		}
+		c.Writer.Flush()
+		return true
+	}
+
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case ev := <-ch:
+			if ev.OrderNumber != orderNumber {
+				continue
+			}
+			b, _ := json.Marshal(ev)
+			if !write("data: " + string(b) + "\n\n") {
+				return
+			}
+		case <-heartbeat.C:
+			if !write(": ping\n\n") {
+				return
+			}
+		}
+	}
 }

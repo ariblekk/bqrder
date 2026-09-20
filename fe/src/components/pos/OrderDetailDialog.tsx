@@ -87,11 +87,6 @@ export default function OrderDetailDialog({
                     <span className="block truncate">
                       {it.quantity}x {it.product_name}
                     </span>
-                    {(it.variant_name || it.option_names) && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {[it.variant_name, it.option_names].filter(Boolean).join(' · ')}
-                      </span>
-                    )}
                     {it.notes && <em className="block truncate text-xs text-muted-foreground">({it.notes})</em>}
                   </span>
                   <span className="shrink-0">{fmtRp(it.subtotal)}</span>

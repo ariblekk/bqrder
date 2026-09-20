@@ -51,20 +51,6 @@ export interface Category {
   created_at?: string
 }
 
-export interface ProductVariant {
-  id: number
-  product_id: number
-  name: string
-  price: number
-}
-
-export interface ProductOption {
-  id: number
-  product_id: number
-  name: string
-  price: number
-}
-
 export interface Product {
   id: number
   branch_id: number
@@ -74,10 +60,41 @@ export interface Product {
   description?: string
   price: number
   stock: number
+  is_unlimited: boolean
   image_url?: string
   is_active: boolean
-  variants: ProductVariant[]
-  options: ProductOption[]
+  is_featured: boolean
+  featured_order: number
+  variants?: ProductVariant[]
+  options?: ProductOption[]
+}
+
+export interface ProductVariant {
+  id: number
+  product_id: number
+  name: string
+  price: number
+  sort_order: number
+}
+
+export interface ProductOption {
+  id: number
+  product_id: number
+  name: string
+  price: number
+  sort_order: number
+}
+
+export interface VariantInput {
+  name: string
+  price: number
+  sort_order?: number
+}
+
+export interface OptionInput {
+  name: string
+  price: number
+  sort_order?: number
 }
 
 export interface ProductList extends Envelope<Product[]> {
@@ -93,13 +110,27 @@ export interface OrderItem {
   id: number
   order_id: number
   product_id: number
+  variant_id?: number
   product_name: string
   quantity: number
   price: number
   notes?: string
-  variant_name?: string
-  option_names?: string
+  option_ids?: number[]
   subtotal: number
+}
+
+export interface CreateOrderItemInput {
+  product_id: number
+  variant_id?: number
+  option_ids?: number[]
+  quantity: number
+  notes?: string
+}
+
+export interface CreateOrderRequest {
+  table_id?: number
+  customer_name: string
+  items: CreateOrderItemInput[]
 }
 
 export interface Order {
@@ -125,9 +156,12 @@ export interface MenuProduct {
   description?: string
   price: number
   stock: number
+  is_unlimited: boolean
   image_url?: string
-  variants: ProductVariant[]
-  options: ProductOption[]
+  is_featured: boolean
+  featured_order: number
+  variants?: ProductVariant[]
+  options?: ProductOption[]
   total_sold?: number
   total_revenue?: number
 }

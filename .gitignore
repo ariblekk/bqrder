@@ -1,0 +1,8 @@
+# Local compose files hold real secrets/values — commit only the examples.
+docker-compose.yml
+docker-compose.override.yml
+
+# Local env files — commit only .env.example.
+.env
+.env.*
+!.env.example

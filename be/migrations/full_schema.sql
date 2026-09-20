@@ -82,40 +82,45 @@ CREATE INDEX IF NOT EXISTS idx_categories_branch ON categories(branch_id);
 
 -- ---------- Products ----------
 CREATE TABLE IF NOT EXISTS products (
-    id          SERIAL PRIMARY KEY,
-    branch_id   INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
-    name        VARCHAR(200) NOT NULL,
-    description TEXT DEFAULT '',
-    price       NUMERIC(12,2) NOT NULL DEFAULT 0,
-    stock       INTEGER NOT NULL DEFAULT 0,
-    image_url   TEXT DEFAULT '',
-    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id              SERIAL PRIMARY KEY,
+    branch_id       INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    category_id     INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+    name            VARCHAR(200) NOT NULL,
+    description     TEXT DEFAULT '',
+    price           NUMERIC(12,2) NOT NULL DEFAULT 0,
+    stock           INTEGER NOT NULL DEFAULT 0,
+    is_unlimited    BOOLEAN NOT NULL DEFAULT FALSE,
+    image_url       TEXT DEFAULT '',
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    is_featured     BOOLEAN NOT NULL DEFAULT FALSE,
+    featured_order  INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_branch ON products(branch_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_featured ON products(branch_id, is_featured, featured_order) WHERE is_featured = TRUE;
 
--- ---------- Product Variants (pilihan wajib satu, harga sendiri, mis. Ice/Rp20rb, Hot/Rp18rb) ----------
+-- ---------- Product Variants (pilih 1, replace harga, mis. Ice/Hot, Size) ----------
 CREATE TABLE IF NOT EXISTS product_variants (
-    id         SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    name       VARCHAR(100) NOT NULL,
-    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          SERIAL PRIMARY KEY,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name        VARCHAR(100) NOT NULL,
+    price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
 
--- ---------- Product Options (tambahan opsional, mis. Less Ice / Less Sugar) ----------
--- ponytail: stok tetap di level product, tidak per variant. Tambah stock per variant kalau tiap varian punya stok terpisah.
+-- ---------- Product Options (tambahan opsional, multi-select, mis. Milk, Extra Shot) ----------
 CREATE TABLE IF NOT EXISTS product_options (
-    id         SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    name       VARCHAR(100) NOT NULL,
-    price      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          SERIAL PRIMARY KEY,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name        VARCHAR(100) NOT NULL,
+    price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_product_options_product ON product_options(product_id);
@@ -142,18 +147,25 @@ CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
 -- ---------- Order Items ----------
 CREATE TABLE IF NOT EXISTS order_items (
-    id           SERIAL PRIMARY KEY,
-    order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-    quantity     INTEGER NOT NULL DEFAULT 1,
-    price        NUMERIC(12,2) NOT NULL DEFAULT 0,
-    notes        TEXT DEFAULT '',
-    variant_name TEXT DEFAULT '',
-    option_names TEXT DEFAULT ''
+    id          SERIAL PRIMARY KEY,
+    order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    variant_id  INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
+    quantity    INTEGER NOT NULL DEFAULT 1,
+    price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    notes       TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_variant ON order_items(variant_id);
+
+-- ---------- Order Item Options (many-to-many) ----------
+CREATE TABLE IF NOT EXISTS order_item_options (
+    order_item_id  INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+    option_id      INTEGER NOT NULL REFERENCES product_options(id) ON DELETE CASCADE,
+    PRIMARY KEY (order_item_id, option_id)
+);
 
 -- ---------- Order Counters (urutan nomor pesanan per cabang per hari) ----------
 CREATE TABLE IF NOT EXISTS order_counters (

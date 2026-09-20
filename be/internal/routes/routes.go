@@ -95,6 +95,7 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		public.GET("/menu", publicHandler.GetMenu)
 		public.POST("/orders", middleware.RateLimit(20, time.Minute), publicHandler.CreateOrder)
 		public.GET("/orders/:order_number", publicHandler.GetOrderStatus)
+		public.GET("/orders/:order_number/events", publicHandler.StreamOrderEvents)
 	}
 
 	// ---------- Admin (Super Admin + Branch Admin) ----------
@@ -116,7 +117,6 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		admin.GET("/products", adminHandler.ListProducts)
 		admin.POST("/products", adminHandler.CreateProduct)
 		admin.PUT("/products/:id", adminHandler.UpdateProduct)
-		admin.DELETE("/products/:id", adminHandler.DeleteProduct)
 		admin.POST("/products/:id/image", adminHandler.UploadProductImage)
 
 		admin.GET("/reports/sales", adminHandler.GetSalesReport)

@@ -71,6 +71,20 @@ func (u *PublicUseCase) GetMenu(branchID int) ([]entities.MenuCategory, error) {
 		return nil, err
 	}
 
+	featured, err := u.productRepo.ListFeaturedByBranch(branchID)
+	if err != nil {
+		featured = []entities.Product{}
+	}
+
+	// Load variants and options for all products
+	allProducts := append(products, featured...)
+	productIDs := make([]int, 0, len(allProducts))
+	for _, p := range allProducts {
+		productIDs = append(productIDs, p.ID)
+	}
+	variants, _ := u.productRepo.ListVariants(productIDs)
+	options, _ := u.productRepo.ListOptions(productIDs)
+
 	stats, err := u.productRepo.SalesStatsByBranch(branchID)
 	if err != nil {
 		stats = map[int]entities.ProductSales{}
@@ -89,16 +103,19 @@ func (u *PublicUseCase) GetMenu(branchID int) ([]entities.MenuCategory, error) {
 			if p.CategoryID == cat.ID {
 				s := stats[p.ID]
 				menuCat.Products = append(menuCat.Products, entities.MenuProduct{
-					ID:           p.ID,
-					Name:         p.Name,
-					Description:  p.Description,
-					Price:        p.Price,
-					Stock:        p.Stock,
-					ImageURL:     p.ImageURL,
-					Variants:     p.Variants,
-					Options:      p.Options,
-					TotalSold:    s.TotalSold,
-					TotalRevenue: s.TotalRevenue,
+					ID:            p.ID,
+					Name:          p.Name,
+					Description:   p.Description,
+					Price:         p.Price,
+					Stock:         p.Stock,
+					IsUnlimited:   p.IsUnlimited,
+					ImageURL:      p.ImageURL,
+					IsFeatured:    p.IsFeatured,
+					FeaturedOrder: p.FeaturedOrder,
+					Variants:      variants[p.ID],
+					Options:       options[p.ID],
+					TotalSold:     s.TotalSold,
+					TotalRevenue:  s.TotalRevenue,
 				})
 			}
 		}
@@ -106,6 +123,35 @@ func (u *PublicUseCase) GetMenu(branchID int) ([]entities.MenuCategory, error) {
 		if len(menuCat.Products) > 0 {
 			result = append(result, menuCat)
 		}
+	}
+
+	// Add featured products as a virtual category at the beginning
+	if len(featured) > 0 {
+		featuredCat := entities.MenuCategory{
+			ID:          0,
+			Name:        "⭐ Pilihan Unggulan",
+			Description: "Menu baru & favorit",
+			Products:    []entities.MenuProduct{},
+		}
+		for _, p := range featured {
+			s := stats[p.ID]
+			featuredCat.Products = append(featuredCat.Products, entities.MenuProduct{
+				ID:            p.ID,
+				Name:          p.Name,
+				Description:   p.Description,
+				Price:         p.Price,
+				Stock:         p.Stock,
+				IsUnlimited:   p.IsUnlimited,
+				ImageURL:      p.ImageURL,
+				IsFeatured:    p.IsFeatured,
+				FeaturedOrder: p.FeaturedOrder,
+				Variants:      variants[p.ID],
+				Options:       options[p.ID],
+				TotalSold:     s.TotalSold,
+				TotalRevenue:  s.TotalRevenue,
+			})
+		}
+		result = append([]entities.MenuCategory{featuredCat}, result...)
 	}
 
 	return result, nil

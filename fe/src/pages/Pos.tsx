@@ -3,13 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { get, post } from "../api/client";
 import { subscribeOrderEvents } from "../api/sse";
-import type {
-  Branch,
-  Order,
-  Product,
-  ProductOption,
-  ProductVariant,
-} from "../api/types";
+import type { Branch, Order, Product } from "../api/types";
 import OrderDetailDialog, { fmtRp } from "../components/pos/OrderDetailDialog";
 import PosHeader from "../components/pos/PosHeader";
 import ProductPicker, { type PickChoice } from "../components/ProductPicker";
@@ -42,26 +36,28 @@ import { cn } from "../lib/utils";
 interface CartLine {
   key: string;
   product: Product;
-  variant: ProductVariant | null;
-  options: ProductOption[];
+  variant_id?: number;
+  option_ids?: number[];
   qty: number;
   notes: string;
 }
 
-const linePrice = (l: CartLine) =>
-  (l.variant?.price ?? l.product.price) +
-  l.options.reduce((s, o) => s + o.price, 0);
+const linePrice = (l: CartLine) => {
+  const variant = l.product.variants?.find((v) => v.id === l.variant_id);
+  const variantPrice = variant?.price ?? l.product.price;
+  const optionsPrice =
+    l.option_ids?.reduce((sum, oid) => {
+      const opt = l.product.options?.find((o) => o.id === oid);
+      return sum + (opt?.price ?? 0);
+    }, 0) ?? 0;
+  return variantPrice + optionsPrice;
+};
 
-function lineKey(
-  p: Product,
-  variant: ProductVariant | null,
-  options: ProductOption[],
-) {
-  const o = [...options]
-    .sort((a, b) => a.id - b.id)
-    .map((x) => x.id)
-    .join(",");
-  return `${p.id}:${variant?.id ?? 0}:${o}`;
+function lineKey(p: Product, variant_id?: number, option_ids?: number[]) {
+  const opts = option_ids
+    ? [...option_ids].sort((a, b) => a - b).join(",")
+    : "";
+  return `${p.id}:${variant_id ?? 0}:${opts}`;
 }
 
 function timeAgo(iso: string) {
@@ -98,11 +94,6 @@ export default function Pos() {
   const [selected, setSelected] = useState<Order | null>(null);
 
   useEffect(() => {
-    const t = setInterval(reload, 15000);
-    return () => clearInterval(t);
-  }, [reload]);
-
-  useEffect(() => {
     return subscribeOrderEvents(() => reload());
   }, [reload]);
 
@@ -130,25 +121,25 @@ export default function Pos() {
 
   function addLine(
     p: Product,
-    choice: { variant: ProductVariant | null; options: ProductOption[] },
+    choice: { variant_id?: number; option_ids?: number[] },
     delta: number,
   ) {
-    const key = lineKey(p, choice.variant, choice.options);
+    const key = lineKey(p, choice.variant_id, choice.option_ids);
     setCart((prev) => {
       const found = prev.find((l) => l.key === key);
       if (found) {
         const nextQty = found.qty + delta;
-        if (nextQty > p.stock) return prev;
+        if (!p.is_unlimited && nextQty > p.stock) return prev;
         return prev.map((l) => (l.key === key ? { ...l, qty: nextQty } : l));
       }
-      if (delta < 1 || p.stock < 1) return prev;
+      if (delta < 1 || (!p.is_unlimited && p.stock < 1)) return prev;
       return [
         ...prev,
         {
           key,
           product: p,
-          variant: choice.variant,
-          options: choice.options,
+          variant_id: choice.variant_id,
+          option_ids: choice.option_ids,
           qty: delta,
           notes: "",
         },
@@ -164,7 +155,7 @@ export default function Pos() {
     if (!picker) return;
     addLine(
       picker,
-      { variant: choice.variant, options: choice.options },
+      { variant_id: choice.variant_id, option_ids: choice.option_ids },
       choice.qty,
     );
   }
@@ -177,13 +168,6 @@ export default function Pos() {
     );
   }
 
-  function lineLabel(l: CartLine) {
-    const parts: string[] = [];
-    if (l.variant) parts.push(l.variant.name);
-    for (const o of l.options) parts.push(o.name);
-    return parts.join(" · ");
-  }
-
   async function submit(pay: boolean) {
     if (!user) return;
     setBusy(true);
@@ -193,9 +177,9 @@ export default function Pos() {
         customer_name: customer,
         items: cart.map((l) => ({
           product_id: l.product.id,
+          variant_id: l.variant_id,
+          option_ids: l.option_ids,
           quantity: l.qty,
-          variant_id: l.variant?.id,
-          option_ids: l.options.map((o) => o.id),
           notes: l.notes,
         })),
         pay,
@@ -361,19 +345,13 @@ export default function Pos() {
                 const qty = cart
                   .filter((l) => l.product.id === p.id)
                   .reduce((s, l) => s + l.qty, 0);
-                const hasChoices =
-                  p.variants.length > 0 || p.options.length > 0;
-                const minPrice =
-                  p.variants.length > 0
-                    ? Math.min(...p.variants.map((v) => v.price))
-                    : p.price;
                 return (
                   <Card
                     key={p.id}
                     size="sm"
                     className={cn(
                       "relative h-full",
-                      p.stock === 0 && "opacity-50",
+                      !p.is_unlimited && p.stock === 0 && "opacity-50",
                     )}
                   >
                     {p.image_url ? (
@@ -390,27 +368,21 @@ export default function Pos() {
                       variant="secondary"
                       className="absolute top-2 right-2 bg-background/80 backdrop-blur"
                     >
-                      stok {p.stock}
+                      stok {p.is_unlimited ? "∞" : p.stock}
                     </Badge>
                     <CardHeader>
                       <CardTitle className="truncate">{p.name}</CardTitle>
                       <CardDescription>
                         <span className="font-semibold text-foreground">
-                          {hasChoices && "mulai "}Rp{" "}
-                          {minPrice.toLocaleString("id-ID")}
+                          Rp {p.price.toLocaleString("id-ID")}
                         </span>
                       </CardDescription>
-                      {hasChoices && (
-                        <CardDescription className="text-xs">
-                          Ada varian / pilihan
-                        </CardDescription>
-                      )}
                     </CardHeader>
                     <CardFooter className="mt-auto">
                       <Button
                         size="sm"
                         className="w-full"
-                        disabled={p.stock === 0}
+                        disabled={!p.is_unlimited && p.stock === 0}
                         onClick={() => addToCart(p)}
                       >
                         {qty > 0 ? `Tambah lagi (${qty})` : "Tambah"}
@@ -455,11 +427,6 @@ export default function Pos() {
                           {l.product.name} — Rp{" "}
                           {(linePrice(l) * l.qty).toLocaleString("id-ID")}
                         </span>
-                        {lineLabel(l) && (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {lineLabel(l)}
-                          </span>
-                        )}
                         {l.notes && (
                           <span className="block truncate text-xs text-muted-foreground">
                             Catatan: {l.notes}
@@ -483,7 +450,10 @@ export default function Pos() {
                           size="icon-sm"
                           variant="ghost"
                           className="size-6 rounded-full"
-                          disabled={l.qty >= l.product.stock}
+                          disabled={
+                            !l.product.is_unlimited &&
+                            l.qty >= l.product.stock
+                          }
                           aria-label={`Tambah ${l.product.name}`}
                           onClick={() => changeQty(l.key, 1)}
                         >

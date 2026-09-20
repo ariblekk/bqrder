@@ -56,12 +56,11 @@ type OrderItem struct {
 	ID        int     `json:"id" db:"id"`
 	OrderID   int     `json:"order_id" db:"order_id"`
 	ProductID int     `json:"product_id" db:"product_id"`
+	VariantID *int    `json:"variant_id,omitempty" db:"variant_id"`
 	Quantity  int     `json:"quantity" db:"quantity"`
 	Price     float64 `json:"price" db:"price"`
 	Notes     string  `json:"notes" db:"notes"`
 
-	VariantName string  `json:"variant_name,omitempty" db:"variant_name"`
-	OptionNames string  `json:"option_names,omitempty" db:"option_names"`
 	ProductName string  `json:"product_name,omitempty" db:"product_name"`
 	Subtotal    float64 `json:"subtotal" db:"subtotal"`
 }
@@ -73,11 +72,11 @@ type CreateOrderRequest struct {
 }
 
 type CreateOrderItemInput struct {
-	ProductID int    `json:"product_id" binding:"required"`
-	Quantity  int    `json:"quantity" binding:"required,min=1"`
-	Notes     string `json:"notes"`
-	VariantID *int   `json:"variant_id"`
-	OptionIDs []int  `json:"option_ids"`
+	ProductID  int    `json:"product_id" binding:"required"`
+	VariantID  *int   `json:"variant_id"`
+	OptionIDs  []int  `json:"option_ids"`
+	Quantity   int    `json:"quantity" binding:"required,min=1"`
+	Notes      string `json:"notes"`
 }
 
 type CreateDirectOrderRequest struct {

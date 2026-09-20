@@ -424,21 +424,6 @@ func (h *AdminHandler) UpdateProduct(c *gin.Context) {
 	response.Success(c, "product updated successfully", product)
 }
 
-func (h *AdminHandler) DeleteProduct(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid product id")
-		return
-	}
-
-	if err := h.productUseCase.Delete(id, getEffectiveBranchID(c)); err != nil {
-		response.NotFound(c, err.Error())
-		return
-	}
-	logAudit(h.audit, c, "delete", "product", id, "")
-	response.Success(c, "product deleted successfully", nil)
-}
-
 func (h *AdminHandler) UploadProductImage(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

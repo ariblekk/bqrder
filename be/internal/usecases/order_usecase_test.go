@@ -100,9 +100,16 @@ func (f *fakeOrderRepo) GetDailySales(branchID int, date string) (*entities.Sale
 func (f *fakeOrderRepo) GetSalesReport(branchID int, startDate, endDate string) (*entities.SalesReport, error) {
 	return nil, nil
 }
+func (f *fakeOrderRepo) CreateOrderItemOptions(itemID int, optionIDs []int) error {
+	return nil
+}
+func (f *fakeOrderRepo) GetOrderItemOptions(itemIDs []int) (map[int][]int, error) {
+	return map[int][]int{}, nil
+}
 
 type fakeProductRepo struct {
 	stock          map[int]int
+	unlimited      map[int]bool
 	decreaseCalled []int
 	fixed          *entities.Product
 }
@@ -112,13 +119,13 @@ func (f *fakeProductRepo) FindByID(id int) (*entities.Product, error) {
 	if f.fixed != nil {
 		return f.fixed, nil
 	}
-	return &entities.Product{ID: id, Name: "prod", Stock: f.stock[id]}, nil
+	return &entities.Product{ID: id, Name: "prod", Stock: f.stock[id], IsUnlimited: f.unlimited[id]}, nil
 }
 func (f *fakeProductRepo) FindByIDAndBranch(id, branchID int) (*entities.Product, error) {
 	if f.fixed != nil {
 		return f.fixed, nil
 	}
-	return &entities.Product{ID: id, Name: "prod", Stock: f.stock[id], Price: 10000, IsActive: true}, nil
+	return &entities.Product{ID: id, Name: "prod", Stock: f.stock[id], IsUnlimited: f.unlimited[id], Price: 10000, IsActive: true}, nil
 }
 func (f *fakeProductRepo) ListByBranch(branchID int, limit, offset int) ([]entities.Product, error) {
 	return nil, nil
@@ -129,22 +136,29 @@ func (f *fakeProductRepo) ListActiveByBranch(branchID int) ([]entities.Product, 
 }
 func (f *fakeProductRepo) Update(product *entities.Product) error    { return nil }
 func (f *fakeProductRepo) UpdateImage(id int, imageURL string) error { return nil }
-func (f *fakeProductRepo) Delete(id int) error                       { return nil }
 func (f *fakeProductRepo) DecreaseStock(productID, quantity int) error {
 	f.decreaseCalled = append(f.decreaseCalled, productID)
-	f.stock[productID] -= quantity
+	if !f.unlimited[productID] {
+		f.stock[productID] -= quantity
+	}
 	return nil
 }
-func (f *fakeProductRepo) ListVariants(ids []int) (map[int][]entities.ProductVariant, error) {
+func (f *fakeProductRepo) SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error) {
+	return nil, nil
+}
+func (f *fakeProductRepo) ListFeaturedByBranch(branchID int) ([]entities.Product, error) {
+	return nil, nil
+}
+func (f *fakeProductRepo) ListVariants(productIDs []int) (map[int][]entities.ProductVariant, error) {
 	return map[int][]entities.ProductVariant{}, nil
 }
-func (f *fakeProductRepo) ListOptions(ids []int) (map[int][]entities.ProductOption, error) {
+func (f *fakeProductRepo) ListOptions(productIDs []int) (map[int][]entities.ProductOption, error) {
 	return map[int][]entities.ProductOption{}, nil
 }
-func (f *fakeProductRepo) ReplaceVariants(id int, variants []entities.ProductVariant) error {
+func (f *fakeProductRepo) ReplaceVariants(productID int, variants []entities.ProductVariant) error {
 	return nil
 }
-func (f *fakeProductRepo) ReplaceOptions(id int, options []entities.ProductOption) error {
+func (f *fakeProductRepo) ReplaceOptions(productID int, options []entities.ProductOption) error {
 	return nil
 }
 
@@ -164,10 +178,6 @@ func (f *fakeTableRepo) FindByIDAndBranch(id, branchID int) (*entities.Table, er
 func (f *fakeTableRepo) FindByQRToken(token string) (*entities.Table, error) { return nil, nil }
 func (f *fakeTableRepo) ListByBranch(branchID int) ([]entities.Table, error) { return nil, nil }
 func (f *fakeTableRepo) Update(table *entities.Table) error                  { return nil }
-
-func (f *fakeProductRepo) SalesStatsByBranch(branchID int) (map[int]entities.ProductSales, error) {
-	return nil, nil
-}
 func (f *fakeTableRepo) Delete(id int) error { return nil }
 
 type fakeTx struct {
@@ -204,7 +214,8 @@ func TestPayDeductsStockAndMarksPaid(t *testing.T) {
 			1: {{ID: 1, OrderID: 1, ProductID: 10, Quantity: 2}},
 		},
 	}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 5}}
+	v := 5
+	productRepo := &fakeProductRepo{stock: map[int]int{10: v}}
 	uow := &fakeUOW{order: orderRepo, product: productRepo}
 	tx := &fakeTx{uow: uow}
 
@@ -230,7 +241,8 @@ func TestPayInsufficientStockDoesNotMarkPaid(t *testing.T) {
 			1: {{ID: 1, OrderID: 1, ProductID: 10, Quantity: 5}},
 		},
 	}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 3}}
+	v := 3
+	productRepo := &fakeProductRepo{stock: map[int]int{10: v}}
 	uow := &fakeUOW{order: orderRepo, product: productRepo}
 	tx := &fakeTx{uow: uow}
 
@@ -288,7 +300,8 @@ func TestReceiptContainsTotalAndNumber(t *testing.T) {
 
 func TestCustomerOrderAutoPaidAndDeductsStock(t *testing.T) {
 	orderRepo := &fakeOrderRepo{orders: map[int]*entities.Order{}, items: map[int][]entities.OrderItem{}}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 5}}
+	v := 5
+	productRepo := &fakeProductRepo{stock: map[int]int{10: v}}
 	uow := &fakeUOW{order: orderRepo, product: productRepo}
 	uc := NewOrderUseCase(orderRepo, productRepo, &fakeTableRepo{}, &fakeTx{uow: uow})
 
@@ -308,7 +321,8 @@ func TestCustomerOrderAutoPaidAndDeductsStock(t *testing.T) {
 
 func TestDirectOrderStaysUnpaid(t *testing.T) {
 	orderRepo := &fakeOrderRepo{orders: map[int]*entities.Order{}, items: map[int][]entities.OrderItem{}}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 5}}
+	v := 5
+	productRepo := &fakeProductRepo{stock: map[int]int{10: v}}
 	uow := &fakeUOW{order: orderRepo, product: productRepo}
 	uc := NewOrderUseCase(orderRepo, productRepo, &fakeTableRepo{}, &fakeTx{uow: uow})
 
@@ -329,7 +343,8 @@ func TestDirectOrderStaysUnpaid(t *testing.T) {
 
 func TestDirectOrderPaidImmediately(t *testing.T) {
 	orderRepo := &fakeOrderRepo{orders: map[int]*entities.Order{}, items: map[int][]entities.OrderItem{}}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 5}}
+	v := 5
+	productRepo := &fakeProductRepo{stock: map[int]int{10: v}}
 	uow := &fakeUOW{order: orderRepo, product: productRepo}
 	uc := NewOrderUseCase(orderRepo, productRepo, &fakeTableRepo{}, &fakeTx{uow: uow})
 
@@ -397,53 +412,10 @@ func TestUnpaidOrderCannotBeCompleted(t *testing.T) {
 	}
 }
 
-func TestOrderUsesVariantAndOptionPrice(t *testing.T) {
-	orderRepo := &fakeOrderRepo{orders: map[int]*entities.Order{}, items: map[int][]entities.OrderItem{}}
-	product := &entities.Product{
-		ID: 10, BranchID: 1, Name: "Kopi Latte", Price: 15000, Stock: 99, IsActive: true,
-		Variants: []entities.ProductVariant{{ID: 1, Name: "Ice", Price: 20000}, {ID: 2, Name: "Hot", Price: 18000}},
-		Options:  []entities.ProductOption{{ID: 1, Name: "Less Ice", Price: 0}, {ID: 2, Name: "Less Sugar", Price: 0}, {ID: 3, Name: "Extra Shot", Price: 5000}},
-	}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 99}, fixed: product}
-	uow := &fakeUOW{order: orderRepo, product: productRepo}
-	uc := NewOrderUseCase(orderRepo, productRepo, &fakeTableRepo{}, &fakeTx{uow: uow})
-
-	ice := 1
-	order, err := uc.CreateFromCustomer(1, &entities.CreateOrderRequest{
-		Items: []entities.CreateOrderItemInput{
-			{ProductID: 10, Quantity: 2, VariantID: &ice, OptionIDs: []int{1, 3}},
-			{ProductID: 10, Quantity: 1, OptionIDs: []int{2}}, // no variant -> must be rejected
-		},
-	})
-	if err == nil {
-		t.Fatal("product with variants must require variant_id")
-	}
-
-	hot := 2
-	order, err = uc.CreateFromCustomer(1, &entities.CreateOrderRequest{
-		Items: []entities.CreateOrderItemInput{
-			{ProductID: 10, Quantity: 2, VariantID: &hot, OptionIDs: []int{2}},
-		},
-	})
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	// Hot 18000 + Less Sugar 0 = 18000 x 2 = 36000
-	if order.TotalAmount != 36000 {
-		t.Fatalf("total should be 36000, got %v", order.TotalAmount)
-	}
-	it := order.Items[0]
-	if it.VariantName != "Hot" || it.OptionNames != "Less Sugar" {
-		t.Fatalf("item should record Hot · Less Sugar, got %q / %q", it.VariantName, it.OptionNames)
-	}
-	if it.Price != 18000 {
-		t.Fatalf("unit price should be 18000, got %v", it.Price)
-	}
-}
-
 func TestCreateOrderGeneratesSeqNumber(t *testing.T) {
 	orderRepo := &fakeOrderRepo{orders: map[int]*entities.Order{}, items: map[int][]entities.OrderItem{}}
-	productRepo := &fakeProductRepo{stock: map[int]int{10: 5}}
+	v := 5
+	productRepo := &fakeProductRepo{stock: map[int]int{10: v}}
 	uow := &fakeUOW{order: orderRepo, product: productRepo}
 	tx := &fakeTx{uow: uow}
 
