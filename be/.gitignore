@@ -4,6 +4,7 @@ be
 
 # Secrets
 .env
+firebase-adminsdk*.json
 
 # Uploads
 uploads/

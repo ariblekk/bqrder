@@ -15,65 +15,17 @@ import {
 } from "../components/ui";
 import { useAsync } from "../hooks/useAsync";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { cn } from "../lib/utils";
-
-const CART_KEY = "qrdigo_cart";
-const QR_KEY = "qrdigo_qr";
-
-export interface CartLine {
-  key: string;
-  product: MenuProduct;
-  variant_id?: number;
-  option_ids?: number[];
-  qty: number;
-  notes: string;
-}
-
-export const linePrice = (l: CartLine) => {
-  const variant = l.product.variants?.find((v) => v.id === l.variant_id);
-  const variantPrice = variant?.price ?? l.product.price;
-  const optionsPrice =
-    l.option_ids?.reduce((sum, oid) => {
-      const opt = l.product.options?.find((o) => o.id === oid);
-      return sum + (opt?.price ?? 0);
-    }, 0) ?? 0;
-  return variantPrice + optionsPrice;
-};
-
-export function lineKey(
-  p: { id: number },
-  variant_id?: number,
-  option_ids?: number[],
-) {
-  const opts = option_ids
-    ? [...option_ids].sort((a, b) => a - b).join(",")
-    : "";
-  return `${p.id}:${variant_id ?? 0}:${opts}`;
-}
-
-export function getCart(): CartLine[] {
-  try {
-    const raw: any[] = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
-    return raw.map((l) => ({
-      key: l.key ?? `${l.product.id}:0:`,
-      product: l.product,
-      variant_id: l.variant_id,
-      option_ids: l.option_ids,
-      qty: l.qty,
-      notes: l.notes ?? "",
-    }));
-  } catch {
-    return [];
-  }
-}
-export function setCart(cart: CartLine[]) {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-}
-export function getQr() {
-  return localStorage.getItem(QR_KEY) || "";
-}
-
-const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+import { cn } from "cn";
+import {
+  getCart,
+  getQr,
+  lineKey,
+  linePrice,
+  setCart,
+  setQr,
+  type CartLine,
+} from "../lib/cart";
+import { formatRupiah } from "../lib/utils";
 
 // Featured carousel component
 function FeaturedCarousel({ products }: { products: MenuProduct[] }) {
@@ -172,7 +124,7 @@ function FeaturedCard({
           </p>
         )}
         <div className="mt-1.5 flex items-center justify-between">
-          <span className="text-sm font-bold">{rupiah(product.price)}</span>
+          <span className="text-sm font-bold">{formatRupiah(product.price)}</span>
           {soldOut && (
             <Badge variant="destructive" className="text-[10px]">
               Habis
@@ -187,7 +139,7 @@ function FeaturedCard({
 export default function Menu() {
   const [params] = useSearchParams();
   const qr = params.get("qr") || getQr();
-  if (params.get("qr")) localStorage.setItem(QR_KEY, qr);
+  if (params.get("qr")) setQr(qr);
 
   const { data: table } = useAsync(
     () => get<Table>(`/public/table/${qr}`),
@@ -400,7 +352,7 @@ export default function Menu() {
                     )}
                     <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
                       <span className="text-sm font-bold">
-                        {rupiah(p.price)}
+                        {formatRupiah(p.price)}
                       </span>
                       <div className="relative">
                         <Button
@@ -434,7 +386,7 @@ export default function Menu() {
             <div className="min-w-0">
               <p className="text-xs opacity-80">{count} item dipilih</p>
               <p className="truncate text-lg font-bold leading-tight">
-                {rupiah(total)}
+                {formatRupiah(total)}
               </p>
             </div>
             <Button

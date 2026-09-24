@@ -6,3 +6,4 @@
 **/Dockerfile
 **/docker-compose.yml
 **/uploads
+**/*firebase-adminsdk*.json

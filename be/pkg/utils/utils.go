@@ -52,7 +52,3 @@ func ParsePagination(page, limit int) (int, int) {
 	}
 	return page, limit
 }
-
-func PaginationOffset(page, limit int) int {
-	return (page - 1) * limit
-}

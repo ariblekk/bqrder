@@ -1,17 +1,17 @@
 package handlers
 
 import (
-	"encoding/json"
 	"strconv"
-	"time"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"be/internal/domain/entities"
+	"be/internal/domain/repositories"
+	"be/internal/fcm"
 	"be/internal/realtime"
 	"be/internal/usecases"
 	"be/pkg/response"
-	"be/pkg/utils"
 )
 
 type POSHandler struct {
@@ -20,6 +20,8 @@ type POSHandler struct {
 	branchUseCase  *usecases.BranchUseCase
 	audit          *usecases.AuditUseCase
 	hub            *realtime.Hub
+	devices        repositories.DeviceRepository
+	push           *fcm.Service
 }
 
 func NewPOSHandler(
@@ -28,6 +30,8 @@ func NewPOSHandler(
 	branchUseCase *usecases.BranchUseCase,
 	audit *usecases.AuditUseCase,
 	hub *realtime.Hub,
+	devices repositories.DeviceRepository,
+	push *fcm.Service,
 ) *POSHandler {
 	return &POSHandler{
 		orderUseCase:   orderUseCase,
@@ -35,7 +39,46 @@ func NewPOSHandler(
 		branchUseCase:  branchUseCase,
 		audit:          audit,
 		hub:            hub,
+		devices:        devices,
+		push:           push,
 	}
+}
+
+// RegisterDevice stores this device's FCM token for the logged-in user so the
+// branch's staff receive push notifications for new orders.
+func (h *POSHandler) RegisterDevice(c *gin.Context) {
+	var req struct {
+		Token    string `json:"token"`
+		Platform string `json:"platform"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Token) == "" {
+		response.BadRequest(c, "token is required")
+		return
+	}
+	platform := strings.ToLower(strings.TrimSpace(req.Platform))
+	if platform != "ios" && platform != "android" {
+		platform = "android"
+	}
+	if err := h.devices.Upsert(getUserID(c), req.Token, platform); err != nil {
+		response.InternalServerError(c, "failed to register device")
+		return
+	}
+	response.Success(c, "device registered", nil)
+}
+
+func (h *POSHandler) UnregisterDevice(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Token == "" {
+		response.BadRequest(c, "token is required")
+		return
+	}
+	if err := h.devices.Remove(req.Token); err != nil {
+		response.InternalServerError(c, "failed to remove device")
+		return
+	}
+	response.Success(c, "device removed", nil)
 }
 
 func (h *POSHandler) GetCurrentBranch(c *gin.Context) {
@@ -57,16 +100,7 @@ func (h *POSHandler) ListTodayOrders(c *gin.Context) {
 }
 
 func (h *POSHandler) ListProducts(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	page, limit = utils.ParsePagination(page, limit)
-
-	products, total, err := h.productUseCase.GetAll(getEffectiveBranchID(c), page, limit)
-	if err != nil {
-		response.InternalServerError(c, "failed to fetch products")
-		return
-	}
-	response.Paginated(c, "products retrieved", products, int64(total), page, limit)
+	listProducts(c, h.productUseCase)
 }
 
 func (h *POSHandler) UpdateOrderStatus(c *gin.Context) {
@@ -129,12 +163,25 @@ func (h *POSHandler) GetReceipt(c *gin.Context) {
 		return
 	}
 
+	// Check if client wants plain text format (for thermal printers)
+	format := c.Query("format")
+	if format == "text" {
+		text, err := h.orderUseCase.ReceiptPlainText(id, branchID, branch)
+		if err != nil {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.Success(c, "receipt ready", gin.H{"receipt": text, "format": "text"})
+		return
+	}
+
+	// Default: structured data for flexible frontend rendering
 	receipt, err := h.orderUseCase.Receipt(id, branchID, branch)
 	if err != nil {
 		response.NotFound(c, err.Error())
 		return
 	}
-	response.Success(c, "receipt ready", gin.H{"receipt": receipt})
+	response.Success(c, "receipt ready", receipt)
 }
 
 func (h *POSHandler) CreateDirectOrder(c *gin.Context) {
@@ -151,44 +198,13 @@ func (h *POSHandler) CreateDirectOrder(c *gin.Context) {
 	}
 	logAudit(h.audit, c, "create", "order", order.ID, order.OrderNumber)
 	h.hub.Publish(getBranchID(c), realtime.Event{Type: "order.new", OrderID: order.ID, OrderNumber: order.OrderNumber})
+	h.push.OrderCreated(getBranchID(c), order)
 	response.Created(c, "direct order created successfully", order)
 }
 
 func (h *POSHandler) StreamEvents(c *gin.Context) {
 	branchID := getEffectiveBranchID(c)
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-	c.Writer.WriteHeader(200)
-
 	ch, unsub := h.hub.Subscribe(branchID)
 	defer unsub()
-
-	write := func(s string) bool {
-		if _, err := c.Writer.WriteString(s); err != nil {
-			return false
-		}
-		c.Writer.Flush()
-		return true
-	}
-
-	heartbeat := time.NewTicker(15 * time.Second)
-	defer heartbeat.Stop()
-
-	for {
-		select {
-		case <-c.Request.Context().Done():
-			return
-		case ev := <-ch:
-			b, _ := json.Marshal(ev)
-			if !write("data: " + string(b) + "\n\n") {
-				return
-			}
-		case <-heartbeat.C:
-			if !write(": ping\n\n") {
-				return
-			}
-		}
-	}
+	streamSSE(c, ch, nil)
 }

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { get, post } from "../api/client";
 import { subscribeOrderEvents } from "../api/sse";
 import type { Branch, Order, Product } from "../api/types";
-import OrderDetailDialog, { fmtRp } from "../components/pos/OrderDetailDialog";
+import OrderDetailDialog from "../components/pos/OrderDetailDialog";
 import PosHeader from "../components/pos/PosHeader";
 import ProductPicker, { type PickChoice } from "../components/ProductPicker";
 import ReceiptDialog from "../components/pos/ReceiptDialog";
@@ -31,42 +31,15 @@ import {
 } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useAsync } from "../hooks/useAsync";
-import { cn } from "../lib/utils";
+import { cn } from "cn";
+import { lineKey, linePrice, type CartLine } from "../lib/cart";
+import { formatRupiah, timeAgo } from "../lib/utils";
 
-interface CartLine {
-  key: string;
-  product: Product;
-  variant_id?: number;
-  option_ids?: number[];
-  qty: number;
-  notes: string;
-}
-
-const linePrice = (l: CartLine) => {
-  const variant = l.product.variants?.find((v) => v.id === l.variant_id);
-  const variantPrice = variant?.price ?? l.product.price;
-  const optionsPrice =
-    l.option_ids?.reduce((sum, oid) => {
-      const opt = l.product.options?.find((o) => o.id === oid);
-      return sum + (opt?.price ?? 0);
-    }, 0) ?? 0;
-  return variantPrice + optionsPrice;
-};
-
-function lineKey(p: Product, variant_id?: number, option_ids?: number[]) {
-  const opts = option_ids
-    ? [...option_ids].sort((a, b) => a - b).join(",")
-    : "";
-  return `${p.id}:${variant_id ?? 0}:${opts}`;
-}
-
-function timeAgo(iso: string) {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "baru saja";
-  if (m < 60) return `${m} mnt lalu`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} jam lalu`;
-  return `${Math.floor(h / 24)} hari lalu`;
+const chime = new Audio("/notif-pos.mp3");
+chime.preload = "auto";
+function playChime() {
+  chime.currentTime = 0;
+  void chime.play();
 }
 
 export default function Pos() {
@@ -92,9 +65,16 @@ export default function Pos() {
   const [paidId, setPaidId] = useState<number | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [selected, setSelected] = useState<Order | null>(null);
+  const lastOwnCreated = useRef<number | null>(null);
 
   useEffect(() => {
-    return subscribeOrderEvents(() => reload());
+    return subscribeOrderEvents((ev) => {
+      const e = ev as { type?: string; order_id?: number };
+      if (e.type === "order.new" && e.order_id !== lastOwnCreated.current) {
+        playChime();
+      }
+      reload();
+    });
   }, [reload]);
 
   const allOrders = orders?.data ?? [];
@@ -184,6 +164,7 @@ export default function Pos() {
         })),
         pay,
       });
+      lastOwnCreated.current = res.data.id;
       setCart([]);
       setCustomer("");
       setPayOpen(false);
@@ -243,7 +224,6 @@ export default function Pos() {
                     const needsProses =
                       o.payment_status === "paid" && o.status === "pending";
                     const needsAction = needsPay || needsProses;
-                    const firstItem = o.items[0]?.product_name;
                     return (
                       <DropdownMenuItem
                         key={o.id}
@@ -265,15 +245,16 @@ export default function Pos() {
                               className={`truncate text-xs ${needsAction ? "font-semibold" : ""}`}
                             >
                               {o.order_number}
-                              {firstItem && (
+                              {o.customer_name && (
                                 <span className="font-normal text-muted-foreground">
                                   {" "}
-                                  · {firstItem}
+                                  · {o.customer_name}
                                 </span>
                               )}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                              {timeAgo(o.created_at)} · {fmtRp(o.total_amount)}
+                              {timeAgo(o.created_at)} ·{" "}
+                              {formatRupiah(o.total_amount)}
                             </p>
                           </div>
                           {needsPay && (
@@ -374,7 +355,7 @@ export default function Pos() {
                       <CardTitle className="truncate">{p.name}</CardTitle>
                       <CardDescription>
                         <span className="font-semibold text-foreground">
-                          Rp {p.price.toLocaleString("id-ID")}
+                          {formatRupiah(p.price)}
                         </span>
                       </CardDescription>
                     </CardHeader>
@@ -424,8 +405,8 @@ export default function Pos() {
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">
-                          {l.product.name} — Rp{" "}
-                          {(linePrice(l) * l.qty).toLocaleString("id-ID")}
+                          {l.product.name} —{" "}
+                          {formatRupiah(linePrice(l) * l.qty)}
                         </span>
                         {l.notes && (
                           <span className="block truncate text-xs text-muted-foreground">
@@ -451,8 +432,7 @@ export default function Pos() {
                           variant="ghost"
                           className="size-6 rounded-full"
                           disabled={
-                            !l.product.is_unlimited &&
-                            l.qty >= l.product.stock
+                            !l.product.is_unlimited && l.qty >= l.product.stock
                           }
                           aria-label={`Tambah ${l.product.name}`}
                           onClick={() => changeQty(l.key, 1)}
@@ -470,7 +450,7 @@ export default function Pos() {
                 onChange={(e) => setCustomer(e.target.value)}
               />
               <div className="flex items-center justify-between">
-                <strong>Total: Rp {total.toLocaleString("id-ID")}</strong>
+                <strong>Total: {formatRupiah(total)}</strong>
               </div>
               <Button
                 disabled={!customer || cart.length === 0 || busy}
@@ -490,7 +470,7 @@ export default function Pos() {
           </DialogHeader>
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground">
-              {customer} • Rp {total.toLocaleString("id-ID")}
+              {customer} • {formatRupiah(total)}
             </p>
             <Button disabled={busy} onClick={() => submit(true)}>
               Tunai (langsung dibayar)

@@ -103,9 +103,6 @@ func (f *fakeOrderRepo) GetSalesReport(branchID int, startDate, endDate string) 
 func (f *fakeOrderRepo) CreateOrderItemOptions(itemID int, optionIDs []int) error {
 	return nil
 }
-func (f *fakeOrderRepo) GetOrderItemOptions(itemIDs []int) (map[int][]int, error) {
-	return map[int][]int{}, nil
-}
 
 type fakeProductRepo struct {
 	stock          map[int]int
@@ -200,9 +197,6 @@ func (f *fakeUOW) OrderRepo() repositories.OrderRepository {
 }
 func (f *fakeUOW) ProductRepo() repositories.ProductRepository {
 	return f.product
-}
-func (f *fakeUOW) TableRepo() repositories.TableRepository {
-	return &fakeTableRepo{}
 }
 
 func TestPayDeductsStockAndMarksPaid(t *testing.T) {

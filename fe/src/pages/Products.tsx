@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState, type FormEvent } from "react";
-import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
+import { useRef, useState, type FormEvent } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { get, post, put, upload } from "../api/client";
+import { formatRupiah } from "../lib/utils";
 import type {
   Category,
   Product,
@@ -11,7 +12,7 @@ import type {
 import {
   Badge,
   Button,
-  DataTable,
+  Checkbox,
   Dialog,
   DialogClose,
   DialogContent,
@@ -26,11 +27,24 @@ import {
   Input,
   Label,
   Select,
-  useToast,
 } from "../components/ui";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAsync } from "../hooks/useAsync";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { HeaderSearch } from "../components/HeaderSearch";
+import {
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const empty = {
   category_id: 0,
@@ -49,7 +63,6 @@ export default function Products() {
   const [image, setImage] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
-  const { toast } = useToast();
   usePageTitle(
     "Produk",
     <>
@@ -73,143 +86,16 @@ export default function Products() {
     [],
   );
   const products = data?.data ?? [];
-  const col = createColumnHelper<Product>();
-
-  const columns = useMemo<ColumnDef<Product, any>[]>(
-    () => [
-      col.accessor("image_url", {
-        header: "Gambar",
-        cell: ({ row }) =>
-          row.original.image_url ? (
-            <img
-              className="size-12 rounded-md object-cover"
-              src={row.original.image_url}
-              alt={row.original.name}
-            />
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          ),
-      }),
-      col.accessor("name", {
-        header: "Nama",
-        cell: ({ row }) => {
-          const p = row.original;
-          return (
-            <span className="flex items-center gap-1.5">
-              {p.name}
-              {p.is_featured && (
-                <Badge variant="secondary" className="gap-1 text-xs">
-                  <span className="text-yellow-500">★</span> Pin
-                </Badge>
-              )}
-            </span>
-          );
-        },
-      }),
-      col.accessor("category_name", { header: "Kategori" }),
-      col.accessor("price", {
-        header: "Harga",
-        cell: (i) => `Rp ${i.getValue<number>().toLocaleString("id-ID")}`,
-      }),
-      col.accessor("stock", {
-        header: "Stok",
-        cell: ({ row }) =>
-          row.original.is_unlimited ? "∞ (unlimited)" : row.original.stock,
-      }),
-      col.accessor((p) => (p.is_active ? "Ya" : "Tidak"), {
-        id: "is_active",
-        header: "Aktif",
-      }),
-      col.display({
-        id: "actions",
-        header: "Aksi",
-        cell: ({ row }) => {
-          const p = row.original;
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="icon-sm" variant="ghost" aria-label="Aksi">
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => {
-                    setEditing(p);
-                    setForm({
-                      category_id: p.category_id,
-                      name: p.name,
-                      price: p.price,
-                      stock: p.stock,
-                      is_unlimited: p.is_unlimited,
-                      variants: (p.variants ?? []).map((v) => ({
-                        name: v.name,
-                        price: v.price,
-                        sort_order: v.sort_order,
-                      })),
-                      options: (p.options ?? []).map((o) => ({
-                        name: o.name,
-                        price: o.price,
-                        sort_order: o.sort_order,
-                      })),
-                    });
-                    setImage(null);
-                    setOpen(true);
-                  }}
-                >
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      await put<Product>(`/admin/products/${p.id}`, {
-                        is_featured: !p.is_featured,
-                      });
-                      toast(
-                        p.is_featured
-                          ? "Dihapus dari banner"
-                          : "Dipin ke banner",
-                      );
-                      reload();
-                    } catch (ex) {
-                      toast((ex as Error).message, { variant: "error" });
-                    }
-                  }}
-                >
-                  {p.is_featured ? "Lepas pin" : "Pin ke banner"}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      await put<Product>(`/admin/products/${p.id}`, {
-                        is_active: !p.is_active,
-                      });
-                      toast(
-                        p.is_active
-                          ? "Produk dinonaktifkan"
-                          : "Produk diaktifkan",
-                      );
-                      reload();
-                    } catch (ex) {
-                      toast((ex as Error).message, { variant: "error" });
-                    }
-                  }}
-                >
-                  {p.is_active ? "Nonaktifkan" : "Aktifkan"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
-      }),
-    ],
-    [col],
+  const rows = products.filter((p) =>
+    [p.name, p.category_name].some((v) =>
+      (v ?? "").toLowerCase().includes(q.toLowerCase()),
+    ),
   );
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!form.category_id) {
-      toast("Pilih kategori dulu", { variant: "error" });
+      toast.error("Pilih kategori dulu");
       return;
     }
     const payload = {
@@ -224,16 +110,16 @@ export default function Products() {
       let id: number | undefined;
       if (editing) {
         await put<Product>(`/admin/products/${editing.id}`, payload);
-        toast("Produk diperbarui");
+        toast.success("Produk diperbarui");
         id = editing.id;
       } else {
         const res = await post<Product>("/admin/products", payload);
-        toast("Produk dibuat");
+        toast.success("Produk dibuat");
         id = res.data.id;
       }
       if (image && id) {
         await upload(`/admin/products/${id}/image`, image);
-        toast("Foto diunggah");
+        toast.success("Foto diunggah");
       }
       setForm(empty);
       setImage(null);
@@ -241,7 +127,7 @@ export default function Products() {
       setOpen(false);
       reload();
     } catch (ex) {
-      toast((ex as Error).message, { variant: "error" });
+      toast.error((ex as Error).message);
     }
   }
 
@@ -280,17 +166,21 @@ export default function Products() {
               <Label>Kategori</Label>
               <Select
                 value={form.category_id ? String(form.category_id) : ""}
-                placeholder="Pilih kategori"
-                options={
-                  cats?.data.map((c: Category) => ({
-                    value: String(c.id),
-                    label: c.name,
-                  })) ?? []
-                }
                 onValueChange={(v) =>
                   setForm({ ...form, category_id: Number(v) })
                 }
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cats?.data.map((c: Category) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="product-name">Nama produk</Label>
@@ -327,12 +217,10 @@ export default function Products() {
                 }
               />
               <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-primary"
+                <Checkbox
                   checked={form.is_unlimited}
-                  onChange={(e) =>
-                    setForm({ ...form, is_unlimited: e.target.checked })
+                  onCheckedChange={(c) =>
+                    setForm({ ...form, is_unlimited: c === true })
                   }
                 />
                 Stok tidak terbatas
@@ -510,13 +398,136 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
-      <DataTable
-        columns={columns}
-        data={products}
-        pageSize={10}
-        globalFilter={q}
-        onGlobalFilterChange={setQ}
-      />
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Gambar</TableHead>
+              <TableHead>Nama</TableHead>
+              <TableHead>Kategori</TableHead>
+              <TableHead>Harga</TableHead>
+              <TableHead>Stok</TableHead>
+              <TableHead>Aktif</TableHead>
+              <TableHead>Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell>
+                  {p.image_url ? (
+                    <img
+                      className="size-12 rounded-md object-cover"
+                      src={p.image_url}
+                      alt={p.name}
+                    />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-1.5">
+                    {p.name}
+                    {p.is_featured && (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <span className="text-yellow-500">★</span> Pin
+                      </Badge>
+                    )}
+                  </span>
+                </TableCell>
+                <TableCell>{p.category_name}</TableCell>
+                <TableCell>
+                  {formatRupiah(p.price)}
+                </TableCell>
+                <TableCell>
+                  {p.is_unlimited ? "∞ (unlimited)" : p.stock}
+                </TableCell>
+                <TableCell>{p.is_active ? "Ya" : "Tidak"}</TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon-sm" variant="ghost" aria-label="Aksi">
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditing(p);
+                          setForm({
+                            category_id: p.category_id,
+                            name: p.name,
+                            price: p.price,
+                            stock: p.stock,
+                            is_unlimited: p.is_unlimited,
+                            variants: (p.variants ?? []).map((v) => ({
+                              name: v.name,
+                              price: v.price,
+                              sort_order: v.sort_order,
+                            })),
+                            options: (p.options ?? []).map((o) => ({
+                              name: o.name,
+                              price: o.price,
+                              sort_order: o.sort_order,
+                            })),
+                          });
+                          setImage(null);
+                          setOpen(true);
+                        }}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          try {
+                            await put<Product>(`/admin/products/${p.id}`, {
+                              is_featured: !p.is_featured,
+                            });
+                            toast.success(
+                              p.is_featured
+                                ? "Dihapus dari banner"
+                                : "Dipin ke banner",
+                            );
+                            reload();
+                          } catch (ex) {
+                            toast.error((ex as Error).message);
+                          }
+                        }}
+                      >
+                        {p.is_featured ? "Lepas pin" : "Pin ke banner"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          try {
+                            await put<Product>(`/admin/products/${p.id}`, {
+                              is_active: !p.is_active,
+                            });
+                            toast.success(
+                              p.is_active
+                                ? "Produk dinonaktifkan"
+                                : "Produk diaktifkan",
+                            );
+                            reload();
+                          } catch (ex) {
+                            toast.error((ex as Error).message);
+                          }
+                        }}
+                      >
+                        {p.is_active ? "Nonaktifkan" : "Aktifkan"}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {!rows.length && (
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Tidak ada data.
+        </p>
+      )}
     </>
   );
 }

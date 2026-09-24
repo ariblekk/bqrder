@@ -14,9 +14,8 @@ import type { Order } from "../api/types";
 import { Badge, Button, Card, CardContent, Skeleton } from "../components/ui";
 import { useAsync } from "../hooks/useAsync";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { cn } from "../lib/utils";
-
-const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+import { cn } from "cn";
+import { formatRupiah } from "../lib/utils";
 
 const STEPS = [
   { key: "pending", label: "Diterima", desc: "Pesananmu sudah masuk ke kasir" },
@@ -224,7 +223,7 @@ export default function OrderStatus() {
                         </span>
                       )}
                     </div>
-                    <span className="text-sm">{rupiah(it.subtotal)}</span>
+                    <span className="text-sm">{formatRupiah(it.subtotal)}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between py-3">
@@ -261,7 +260,7 @@ export default function OrderStatus() {
             <div className="min-w-0">
               <p className="text-xs opacity-80">Total ({count} item)</p>
               <p className="truncate text-lg font-bold leading-tight">
-                {rupiah(o.total_amount)}
+                {formatRupiah(o.total_amount)}
               </p>
             </div>
             <Button

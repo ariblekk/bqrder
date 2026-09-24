@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "527641144427",
+    "project_id": "qrdigo-067",
+    "storage_bucket": "qrdigo-067.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527641144427:android:dcc4b4f3efe9261f1e152e",
+        "android_client_info": {
+          "package_name": "com.example.qrdigo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABiL76ao7FLIDFufBlyp8K2wgA-bbuWNE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

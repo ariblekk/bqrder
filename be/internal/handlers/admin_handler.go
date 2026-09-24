@@ -374,11 +374,17 @@ func (h *AdminHandler) DeleteCategory(c *gin.Context) {
 // ---------- Product Management ----------
 
 func (h *AdminHandler) ListProducts(c *gin.Context) {
+	listProducts(c, h.productUseCase)
+}
+
+// listProducts serves the paginated product list for both the admin and POS
+// routes; they share the same query and response shape.
+func listProducts(c *gin.Context, uc *usecases.ProductUseCase) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	page, limit = utils.ParsePagination(page, limit)
 
-	products, total, err := h.productUseCase.GetAll(getEffectiveBranchID(c), page, limit)
+	products, total, err := uc.GetAll(getEffectiveBranchID(c), page, limit)
 	if err != nil {
 		response.InternalServerError(c, "failed to fetch products")
 		return
@@ -445,10 +451,8 @@ func (h *AdminHandler) UploadProductImage(c *gin.Context) {
 	defer file.Close()
 
 	upload := &usecases.UploadedFile{
-		Filename:    fileHeader.Filename,
-		Size:        fileHeader.Size,
-		ContentType: fileHeader.Header.Get("Content-Type"),
-		Reader:      file,
+		Size:   fileHeader.Size,
+		Reader: file,
 	}
 
 	product, err := h.productUseCase.UploadImage(id, getEffectiveBranchID(c), upload)
@@ -468,19 +472,9 @@ func (h *AdminHandler) UploadProductImage(c *gin.Context) {
 
 func (h *AdminHandler) GetSalesReport(c *gin.Context) {
 	period := c.DefaultQuery("period", "daily")
-
-	if period == "daily" || period == "monthly" {
-		summary, err := h.reportUseCase.GetSalesSummary(getEffectiveBranchID(c), period)
-		if err != nil {
-			response.BadRequest(c, err.Error())
-			return
-		}
-		response.Success(c, "sales report retrieved", summary)
-		return
-	}
-
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
+
 	report, err := h.reportUseCase.GetSalesReport(getEffectiveBranchID(c), period, startDate, endDate)
 	if err != nil {
 		response.BadRequest(c, err.Error())

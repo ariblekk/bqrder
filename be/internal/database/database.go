@@ -89,6 +89,15 @@ CREATE TABLE IF NOT EXISTS order_item_options (
     order_item_id  INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
     option_id      INTEGER NOT NULL REFERENCES product_options(id) ON DELETE CASCADE,
     PRIMARY KEY (order_item_id, option_id)
-);`)
+);
+
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id         SERIAL PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token      TEXT NOT NULL UNIQUE,
+    platform   VARCHAR(20) NOT NULL DEFAULT 'android',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id);`)
 	return err
 }

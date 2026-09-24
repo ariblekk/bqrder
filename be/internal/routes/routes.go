@@ -3,7 +3,10 @@ package routes
 import (
 	"context"
 	"database/sql"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +14,8 @@ import (
 	"github.com/gin-contrib/cors"
 
 	"be/config"
+	"be/internal/domain/repositories"
+	"be/internal/fcm"
 	"be/internal/handlers"
 	"be/internal/middleware"
 	"be/internal/realtime"
@@ -22,7 +27,7 @@ import (
 func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger())
-	router.Use(middleware.Recovery())
+	router.Use(gin.Recovery())
 	router.Use(middleware.SecurityHeaders(cfg.IsProduction()))
 	router.Use(middleware.MaxBodySize(6 << 20)) // 6 MB, below 5 MB upload limit + form overhead
 
@@ -42,14 +47,15 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	}))
 
 	// ---- Repositories ----
-	store := postgres.NewStore(db)
+	store := postgres.NewStore(db, cfg.AppTimezone)
 	userRepo := postgres.NewUserRepo(db)
 	branchRepo := postgres.NewBranchRepo(db)
 	tableRepo := postgres.NewTableRepo(db)
 	categoryRepo := postgres.NewCategoryRepo(db)
 	productRepo := postgres.NewProductRepo(db)
-	orderRepo := postgres.NewOrderRepo(db)
+	orderRepo := postgres.NewOrderRepo(db, cfg.AppTimezone)
 	auditRepo := postgres.NewAuditRepo(db)
+	deviceRepo := postgres.NewDeviceRepo(db)
 
 	// ---- JWT ----
 	jwtManager := bqrjwt.NewJWTManager(
@@ -67,15 +73,17 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	productUseCase := usecases.NewProductUseCase(productRepo, categoryRepo, cfg)
 	orderUseCase := usecases.NewOrderUseCase(orderRepo, productRepo, tableRepo, store)
 	reportUseCase := usecases.NewReportUseCase(orderRepo)
-	publicUseCase := usecases.NewPublicUseCase(categoryRepo, productRepo, tableRepo, branchRepo, orderUseCase, cfg.FRONTEND_URL)
 	auditUseCase := usecases.NewAuditUseCase(auditRepo)
+
+	publicUseCase := usecases.NewPublicUseCase(categoryRepo, productRepo, tableRepo, branchRepo, orderUseCase, cfg.FRONTEND_URL)
 
 	// ---- Handlers ----
 	hub := realtime.NewHub()
+	pushService := buildPushService(cfg, deviceRepo)
 	authHandler := handlers.NewAuthHandler(authUseCase, auditUseCase)
 	adminHandler := handlers.NewAdminHandler(branchUseCase, tableUseCase, categoryUseCase, productUseCase, reportUseCase, auditUseCase)
-	posHandler := handlers.NewPOSHandler(orderUseCase, productUseCase, branchUseCase, auditUseCase, hub)
-	publicHandler := handlers.NewPublicHandler(publicUseCase, hub)
+	posHandler := handlers.NewPOSHandler(orderUseCase, productUseCase, branchUseCase, auditUseCase, hub, deviceRepo, pushService)
+	publicHandler := handlers.NewPublicHandler(publicUseCase, hub, pushService)
 
 	api := router.Group("/api/v1")
 
@@ -145,6 +153,8 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		pos.POST("/orders/:id/pay", posHandler.PayOrder)
 		pos.GET("/orders/:id/receipt", posHandler.GetReceipt)
 		pos.POST("/orders/direct", posHandler.CreateDirectOrder)
+		pos.POST("/devices", posHandler.RegisterDevice)
+		pos.DELETE("/devices", posHandler.UnregisterDevice)
 	}
 
 	// Serve uploaded static files
@@ -170,4 +180,34 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	router.NoRoute(middleware.NotFoundHandler())
 
 	return router
+}
+
+// buildPushService assembles the FCM push service. When push is not configured
+// (FCM_CREDENTIALS empty) it returns a no-op service so the server runs fine
+// without Firebase.
+func buildPushService(cfg *config.Config, devices repositories.DeviceRepository) *fcm.Service {
+	if cfg.FCMCredentials == "" {
+		return fcm.NewService(devices, nil)
+	}
+	value := strings.TrimSpace(cfg.FCMCredentials)
+	raw := []byte(value)
+	// A path to the service account file, or the JSON content itself.
+	if !strings.HasPrefix(value, "{") {
+		b, err := os.ReadFile(value)
+		if err != nil {
+			log.Printf("[WARN] FCM_CREDENTIALS looks like a file path but cannot be read, push disabled: %v", err)
+			return fcm.NewService(devices, nil)
+		}
+		raw = b
+	}
+	push, err := fcm.New(raw, func(format string, args ...any) {
+		log.Printf("[FCM] "+format, args...)
+	})
+	if err != nil {
+		// A broken notification credential must not take down the POS.
+		log.Printf("[WARN] Invalid FCM_CREDENTIALS, push disabled: %v", err)
+		return fcm.NewService(devices, nil)
+	}
+	log.Println("FCM push enabled")
+	return fcm.NewService(devices, push)
 }

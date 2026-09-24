@@ -72,11 +72,16 @@ type AuditRepository interface {
 	Create(entry *entities.AuditLog) error
 }
 
+type DeviceRepository interface {
+	Upsert(userID int, token, platform string) error
+	Remove(token string) error
+	TokensByBranch(branchID int) ([]string, error)
+}
+
 type OrderRepository interface {
 	Create(order *entities.Order) (int, error)
 	CreateOrderItem(item *entities.OrderItem) (int, error)
 	CreateOrderItemOptions(itemID int, optionIDs []int) error
-	GetOrderItemOptions(itemIDs []int) (map[int][]int, error)
 	FindByIDAndBranch(id, branchID int) (*entities.Order, error)
 	FindByOrderNumber(number string) (*entities.Order, error)
 	ListTodayByBranch(branchID int) ([]entities.Order, error)
@@ -98,7 +103,6 @@ type UnitOfWork interface {
 	Rollback() error
 	OrderRepo() OrderRepository
 	ProductRepo() ProductRepository
-	TableRepo() TableRepository
 }
 
 // TxBeginner starts a transaction; the resulting UnitOfWork provides

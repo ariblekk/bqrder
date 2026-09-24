@@ -51,12 +51,3 @@ func TestParsePagination(t *testing.T) {
 		}
 	}
 }
-
-func TestPaginationOffset(t *testing.T) {
-	if got := PaginationOffset(1, 10); got != 0 {
-		t.Fatalf("page 1 offset = %d, want 0", got)
-	}
-	if got := PaginationOffset(3, 10); got != 20 {
-		t.Fatalf("page 3 offset = %d, want 20", got)
-	}
-}

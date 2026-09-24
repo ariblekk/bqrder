@@ -18,10 +18,11 @@ type Querier interface {
 // Store owns the *sql.DB and starts transactions.
 type Store struct {
 	db *sql.DB
+	tz string
 }
 
-func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+func NewStore(db *sql.DB, tz string) *Store {
+	return &Store{db: db, tz: tz}
 }
 
 func (s *Store) Begin(ctx context.Context) (repositories.UnitOfWork, error) {
@@ -29,24 +30,21 @@ func (s *Store) Begin(ctx context.Context) (repositories.UnitOfWork, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &storeTx{tx: tx}, nil
+	return &storeTx{tx: tx, tz: s.tz}, nil
 }
 
 type storeTx struct {
 	tx *sql.Tx
+	tz string
 }
 
 func (t *storeTx) Commit() error   { return t.tx.Commit() }
 func (t *storeTx) Rollback() error { return t.tx.Rollback() }
 
 func (t *storeTx) OrderRepo() repositories.OrderRepository {
-	return NewOrderRepo(t.tx)
+	return NewOrderRepo(t.tx, t.tz)
 }
 
 func (t *storeTx) ProductRepo() repositories.ProductRepository {
 	return NewProductRepo(t.tx)
-}
-
-func (t *storeTx) TableRepo() repositories.TableRepository {
-	return NewTableRepo(t.tx)
 }

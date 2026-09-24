@@ -86,19 +86,3 @@ func NotFoundHandler() gin.HandlerFunc {
 		})
 	}
 }
-
-func Recovery() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		defer recoverHandler(c)
-		c.Next()
-	}
-}
-
-func recoverHandler(c *gin.Context) {
-	if r := recover(); r != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "internal server error",
-		})
-	}
-}

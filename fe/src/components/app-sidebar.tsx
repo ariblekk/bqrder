@@ -53,7 +53,7 @@ export function AppSidebar({
   user,
   onLogout,
   ...props
-}: { user: { name: string; role: string }; onLogout: () => void } & ComponentProps<
+}: { user: { name: string; role: string; email: string }; onLogout: () => void } & ComponentProps<
   typeof Sidebar
 >) {
   const items = user.role === "super_admin" ? navItems : navItems.filter((i) => !i.super)

@@ -45,8 +45,8 @@ type Order struct {
 	Status        OrderStatus   `json:"status" db:"status"`
 	PaymentStatus PaymentStatus `json:"payment_status" db:"payment_status"`
 	PaymentMethod *string       `json:"payment_method" db:"payment_method"`
-	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at" db:"updated_at"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 
 	BranchName string      `json:"branch_name,omitempty"`
 	Items      []OrderItem `json:"items,omitempty"`

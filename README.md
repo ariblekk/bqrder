@@ -61,7 +61,7 @@ Jalankan (salah satu):
 ```ps1
 # opsi 1 — Go langsung
 go mod download
-go run cmd/server/main.go
+go run be.go
 
 # opsi 2 — Docker (Postgres + API sekaligus)
 docker compose up -d --build
@@ -100,6 +100,7 @@ Buka `http://localhost:3000`. Jika backend bukan di `localhost:8080`, ubah `VITE
 
 ## Catatan
 
+- Zona waktu bisnis diatur lewat `APP_TIMEZONE` (default `Asia/Jakarta`). Tanggal laporan, nomor order harian, dan jam di struk mengikuti zona ini — bukan jam server (container default UTC).
 - Migrasi otomatis hanya dilakukan oleh container Postgres di `docker-compose.yml`. Kalau pakai Supabase → skema sudah jalan manual via SQL Editor.
 - Upload gambar produk tersimpan di disk lokal backend (`UPLOAD_PATH`), bukan di Supabase Storage.
 - Pembayaran saat ini hanya tunai (`cash`).

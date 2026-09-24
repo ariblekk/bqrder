@@ -5,4 +5,5 @@ docker-compose.override.yml
 # Local env files — commit only .env.example.
 .env
 .env.*
+/be/qrdigo-067-firebase-adminsdk-fbsvc-ff7954bb38.json
 !.env.example

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -31,6 +30,15 @@ type Config struct {
 	BaseURL        string
 	FRONTEND_URL   string
 	TrustedProxies []string
+
+	// AppTimezone is the business timezone (IANA name). Order numbers, receipt
+	// timestamps, and report date boundaries use it instead of the server's
+	// clock, so a UTC host still reports the restaurant's local day.
+	AppTimezone string
+
+	// FCMCredentials is the Firebase service account (JSON content or path to
+	// the file) used to send push notifications. Empty disables push.
+	FCMCredentials string
 }
 
 func Load() *Config {
@@ -54,6 +62,8 @@ func Load() *Config {
 		UploadPath:       getEnv("UPLOAD_PATH", "./uploads"),
 		BaseURL:          strings.TrimRight(getEnv("BASE_URL", "http://localhost:8080"), "/"),
 		FRONTEND_URL:     strings.TrimRight(getEnv("FRONTEND_URL", "http://localhost:3000"), "/"),
+		AppTimezone:      getEnv("APP_TIMEZONE", getEnv("TZ", "Asia/Jakarta")),
+		FCMCredentials:   getEnv("FCM_CREDENTIALS", ""),
 	}
 
 	if raw := getEnv("TRUSTED_PROXIES", ""); raw != "" {
@@ -72,13 +82,9 @@ func (c *Config) IsProduction() bool {
 }
 
 var weakSecrets = map[string]bool{
-	"":                            true,
-	"your-secret-key":             true,
-	"your-refresh-secret-key":     true,
-	"ubah-ini-jadi-secret-yang-kuat":         true,
-	"ubah-ini-jadi-refresh-secret-yang-kuat": true,
-	"secret": true,
-	"changeme": true,
+	"":                        true,
+	"your-secret-key":         true,
+	"your-refresh-secret-key": true,
 }
 
 // Validate fails fast in production so the server never runs with weak
@@ -111,8 +117,6 @@ func (c *Config) Validate() error {
 	}
 	return nil
 }
-
-var ErrMissingEnv = errors.New("missing required environment variable")
 
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {

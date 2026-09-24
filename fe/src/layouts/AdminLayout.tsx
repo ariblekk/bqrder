@@ -18,7 +18,7 @@ function Shell() {
   return (
     <SidebarProvider>
       <AppSidebar
-        user={user ?? { name: "qrdigo", role: "" }}
+        user={user ?? { name: "qrdigo", role: "", email: "" }}
         onLogout={() => {
           logout();
           nav("/login");

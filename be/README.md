@@ -26,8 +26,7 @@ RESTful API backend untuk aplikasi Point of Sale (POS) bernama **qrdigo**, diban
 
 ```
 be/
-├── cmd/
-│   └── server/main.go            # Entry point
+├── be.go                        # Entry point (go run be.go)
 ├── config/config.go              # Load konfigurasi dari .env
 ├── internal/
 │   ├── database/database.go      # Koneksi PostgreSQL (connection pool)
@@ -78,7 +77,7 @@ psql -d qrdigo -U postgres -f migrations/002_order_counters.sql
 go mod download
 
 # 6. Jalankan server
-go run cmd/server/main.go
+go run be.go
 ```
 
 Server akan berjalan di `http://localhost:8080` (default).

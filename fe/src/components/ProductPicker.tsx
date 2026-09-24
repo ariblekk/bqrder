@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ProductVariant, ProductOption } from "../api/types";
+import { cn } from "cn";
+import { formatRupiah } from "../lib/utils";
 import {
   Button,
   Sheet,
@@ -8,8 +10,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "./ui";
-
-const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
 export interface PickChoice {
   qty: number;
@@ -105,9 +105,7 @@ export default function ProductPicker({
                         : "hover:border-primary/50",
                     )}
                   >
-                    <span className="block">
-                      {v.name} - {rupiah(v.price)}
-                    </span>
+                    <span className="block">{v.name}</span>
                   </button>
                 ))}
               </div>
@@ -140,7 +138,7 @@ export default function ProductPicker({
                             active ? "text-primary" : "text-muted-foreground",
                           )}
                         >
-                          +{rupiah(o.price)}
+                          +{formatRupiah(o.price)}
                         </span>
                       )}
                     </button>
@@ -180,7 +178,7 @@ export default function ProductPicker({
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Total</p>
-              <p className="text-base font-bold">{rupiah(unit * qty)}</p>
+              <p className="text-base font-bold">{formatRupiah(unit * qty)}</p>
             </div>
           </div>
 
@@ -203,8 +201,4 @@ export default function ProductPicker({
       </SheetContent>
     </Sheet>
   );
-}
-
-function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(" ");
 }

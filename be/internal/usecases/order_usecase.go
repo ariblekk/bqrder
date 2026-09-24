@@ -34,9 +34,9 @@ func NewOrderUseCase(
 }
 
 func (u *OrderUseCase) CreateFromCustomer(branchID int, req *entities.CreateOrderRequest) (*entities.Order, error) {
-	// Customer orders are settled by the payment gateway up front, so they are
-	// recorded as paid immediately, but stay pending until the cashier hits
-	// "Proses" and the kitchen starts working on them.
+	// Customer orders are settled up front: recorded as paid immediately, but
+	// stay pending until the cashier hits "Proses" and the kitchen starts
+	// working on them.
 	return u.createOrder(branchID, req.TableID, req.CustomerName, req.Items, string(entities.PaymentMethodGateway), entities.OrderStatusPending)
 }
 
@@ -239,23 +239,6 @@ func (u *OrderUseCase) GetTodayOrders(branchID int) ([]entities.Order, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Collect all item IDs to load options
-	allItemIDs := make([]int, 0)
-	for _, items := range itemsByOrder {
-		for _, item := range items {
-			allItemIDs = append(allItemIDs, item.ID)
-		}
-	}
-	optionsByItem, _ := u.orderRepo.GetOrderItemOptions(allItemIDs)
-	// Attach options to items
-	for _, items := range itemsByOrder {
-		for i := range items {
-			if opts := optionsByItem[items[i].ID]; len(opts) > 0 {
-				// Store option IDs - for display we'd need to join with product options
-				// For now just store the IDs
-			}
-		}
-	}
 	for i := range orders {
 		orders[i].Items = itemsByOrder[orders[i].ID]
 	}
@@ -391,8 +374,28 @@ func deductStock(uow repositories.UnitOfWork, items []entities.OrderItem) error 
 	return nil
 }
 
-// Receipt renders a plain-text (thermal-printer friendly) receipt for an order.
-func (u *OrderUseCase) Receipt(id, branchID int, branch *entities.Branch) (string, error) {
+// ReceiptData holds structured receipt data for flexible frontend rendering.
+type ReceiptData struct {
+	Order  *entities.Order   `json:"order"`
+	Branch *entities.Branch  `json:"branch"`
+}
+
+// Receipt returns structured receipt data. Frontend can render as UI, plain text, or PDF.
+func (u *OrderUseCase) Receipt(id, branchID int, branch *entities.Branch) (*ReceiptData, error) {
+	order, err := u.GetByID(id, branchID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReceiptData{
+		Order:  order,
+		Branch: branch,
+	}, nil
+}
+
+// ReceiptPlainText renders a plain-text (thermal-printer friendly) receipt.
+// Kept for backward compatibility or direct thermal printing needs.
+func (u *OrderUseCase) ReceiptPlainText(id, branchID int, branch *entities.Branch) (string, error) {
 	order, err := u.GetByID(id, branchID)
 	if err != nil {
 		return "", err
@@ -416,7 +419,7 @@ func (u *OrderUseCase) Receipt(id, branchID int, branch *entities.Branch) (strin
 	}
 	b.WriteString(line + "\n")
 	b.WriteString(fmt.Sprintf("No       : %s\n", order.OrderNumber))
-	b.WriteString(fmt.Sprintf("Waktu    : %s\n", order.CreatedAt.Format("02/01/2006 15:04")))
+	b.WriteString(fmt.Sprintf("Waktu    : %s\n", order.CreatedAt.In(time.Local).Format("02/01/2006 15:04")))
 	if order.CustomerName != "" {
 		b.WriteString(fmt.Sprintf("Pelanggan: %s\n", order.CustomerName))
 	}

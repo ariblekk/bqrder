@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react'
-import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontal, Pencil, Plus, Power } from 'lucide-react'
 import { get, post, put } from '../api/client'
 import { getBranchId } from '../api/client'
@@ -7,7 +6,6 @@ import type { Branch, Role, User } from '../api/types'
 import { HeaderSearch } from '../components/HeaderSearch'
 import {
   Button,
-  DataTable,
   Dialog,
   DialogClose,
   DialogContent,
@@ -23,6 +21,15 @@ import {
   Label,
   Select,
 } from '../components/ui'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table'
+import { SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { useAsync } from '../hooks/useAsync'
 import { useAuth } from '../context/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
@@ -113,7 +120,7 @@ export default function Users() {
       {(err || actionErr) && (
         <p className="text-sm font-medium text-destructive">{err || actionErr}</p>
       )}
-      {isSuper && !branches?.length && (
+      {isSuper && branches && !branches.length && (
         <p className="text-sm font-medium text-destructive">Buat cabang dulu sebelum menambah user.</p>
       )}
       {msg && <p className="text-sm font-medium text-primary">{msg}</p>}
@@ -164,8 +171,16 @@ export default function Users() {
                 <Select
                   value={form.role}
                   onValueChange={(v) => setForm({ ...form, role: v as Role })}
-                  options={roleOptions}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </form>
@@ -223,8 +238,16 @@ export default function Users() {
                 <Select
                   value={editForm.role}
                   onValueChange={(v) => setEditForm({ ...editForm, role: v as Role })}
-                  options={roleOptions}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </form>
@@ -241,7 +264,6 @@ export default function Users() {
         data={data?.data ?? []}
         branches={branches ?? []}
         filter={q}
-        onFilterChange={setQ}
         onEdit={startEdit}
         onToggle={toggleActive}
       />
@@ -253,56 +275,70 @@ function UserTable({
   data,
   branches,
   filter,
-  onFilterChange,
   onEdit,
   onToggle,
 }: {
   data: User[]
   branches: Branch[]
   filter: string
-  onFilterChange: (v: string) => void
   onEdit: (u: User) => void
   onToggle: (u: User) => void
 }) {
-  const col = createColumnHelper<User>()
   const branchName = (id: number) => branches.find((b) => b.id === id)?.name ?? `#${id}`
-  const columns: ColumnDef<User, any>[] = [
-    col.accessor('name', { header: 'Nama' }),
-    col.accessor('email', { header: 'Email' }),
-    col.accessor('role', { header: 'Role' }),
-    col.accessor('branch_id', {
-      header: 'Cabang',
-      cell: (i) => branchName(i.getValue<number>()),
-    }),
-    col.accessor((u) => (u.is_active ? 'Ya' : 'Tidak'), { id: 'is_active', header: 'Aktif' }),
-    col.display({
-      id: 'actions',
-      header: 'Aksi',
-      cell: ({ row }) => {
-        const u = row.original
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(u)}>
-                <Pencil />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onToggle(u)}>
-                <Power />
-                {u.is_active ? 'Nonaktif' : 'Aktifkan'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      },
-    }),
-  ]
+  const rows = data.filter((u) =>
+    [u.name, u.email, u.role, branchName(u.branch_id)].some((v) =>
+      (v ?? '').toLowerCase().includes(filter.toLowerCase()),
+    ),
+  )
   return (
-    <DataTable columns={columns} data={data} globalFilter={filter} onGlobalFilterChange={onFilterChange} />
+    <div>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nama</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Cabang</TableHead>
+              <TableHead>Aktif</TableHead>
+              <TableHead>Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((u) => (
+              <TableRow key={u.id}>
+                <TableCell>{u.name}</TableCell>
+                <TableCell>{u.email}</TableCell>
+                <TableCell>{u.role}</TableCell>
+                <TableCell>{branchName(u.branch_id)}</TableCell>
+                <TableCell>{u.is_active ? 'Ya' : 'Tidak'}</TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8">
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onEdit(u)}>
+                        <Pencil />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onToggle(u)}>
+                        <Power />
+                        {u.is_active ? 'Nonaktif' : 'Aktifkan'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {!rows.length && (
+        <p className="mt-4 text-center text-sm text-muted-foreground">Tidak ada data.</p>
+      )}
+    </div>
   )
 }

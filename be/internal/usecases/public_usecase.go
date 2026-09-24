@@ -174,6 +174,7 @@ func (u *PublicUseCase) CreateOrder(branchID int, req *entities.CreateOrderReque
 	if req.TableID == nil {
 		return nil, errors.New("table_id is required for customer orders")
 	}
+
 	return u.orderUseCase.CreateFromCustomer(branchID, req)
 }
 

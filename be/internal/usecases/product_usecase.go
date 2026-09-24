@@ -25,10 +25,8 @@ var allowedImageTypes = map[string]string{
 }
 
 type UploadedFile struct {
-	Filename    string
-	Size        int64
-	ContentType string
-	Reader      io.Reader
+	Size   int64
+	Reader io.Reader
 }
 
 type ProductUseCase struct {

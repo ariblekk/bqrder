@@ -5,9 +5,8 @@ import { post } from "../api/client";
 import type { Order } from "../api/types";
 import { Button, Card, CardContent, Input, Label } from "../components/ui";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { getCart, getQr, linePrice, setCart } from "./Menu";
-
-const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+import { getCart, getQr, linePrice, setCart } from "../lib/cart";
+import { formatRupiah } from "../lib/utils";
 
 export default function Checkout() {
   const nav = useNavigate();
@@ -173,7 +172,7 @@ export default function Checkout() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {rupiah(linePrice(l))} / pcs
+                      {formatRupiah(linePrice(l))} / pcs
                     </p>
                     {l.notes && noteEditor !== l.key && (
                       <p className="truncate text-xs text-muted-foreground">
@@ -232,7 +231,7 @@ export default function Checkout() {
                         </Button>
                       </div>
                       <span className="text-sm font-bold">
-                        {rupiah(linePrice(l) * l.qty)}
+                        {formatRupiah(linePrice(l) * l.qty)}
                       </span>
                     </div>
                   </div>
@@ -250,11 +249,11 @@ export default function Checkout() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  placeholder="Contoh: Budi"
+                  placeholder="Contoh: Ari"
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Pesanan masuk ke kasir — bayar tunai saat pesanan diproses.
+                Pesanan masuk ke kasir.
               </p>
             </CardContent>
           </Card>
@@ -265,7 +264,7 @@ export default function Checkout() {
             <div className="min-w-0">
               <p className="text-xs opacity-80">Total ({count} item)</p>
               <p className="truncate text-lg font-bold leading-tight">
-                {rupiah(total)}
+                {formatRupiah(total)}
               </p>
             </div>
             <Button

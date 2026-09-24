@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontal, Pencil, Plus, Power } from 'lucide-react'
+import { toast } from 'sonner'
 import { get, post, put } from '../api/client'
 import type { Branch } from '../api/types'
 import { HeaderSearch } from '../components/HeaderSearch'
 import {
   Button,
-  DataTable,
   Dialog,
   DialogClose,
   DialogContent,
@@ -20,8 +19,15 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
-  useToast,
 } from '../components/ui'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table'
 import { useAsync } from '../hooks/useAsync'
 import { usePageTitle } from '../hooks/usePageTitle'
 
@@ -29,13 +35,11 @@ const empty = { name: '', address: '', phone: '' }
 
 export default function Branches() {
   const { data, err, reload } = useAsync(() => get<Branch[]>('/admin/branches'), [])
-  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Branch | null>(null)
   const [form, setForm] = useState(empty)
   const [q, setQ] = useState('')
   const [actionErr, setActionErr] = useState('')
-  const col = createColumnHelper<Branch>()
 
   usePageTitle(
     'Cabang',
@@ -48,70 +52,28 @@ export default function Branches() {
     </>,
   )
 
-  const columns: ColumnDef<Branch, any>[] = [
-    col.accessor('name', { header: 'Nama' }),
-    col.accessor('address', { header: 'Alamat', cell: (i) => i.getValue<string>() || '-' }),
-    col.accessor('phone', { header: 'Telepon', cell: (i) => i.getValue<string>() || '-' }),
-    col.accessor((b) => (b.is_active ? 'Ya' : 'Tidak'), { id: 'is_active', header: 'Aktif' }),
-    col.display({
-      id: 'actions',
-      header: 'Aksi',
-      cell: ({ row }) => {
-        const b = row.original
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => {
-                  setEditing(b)
-                  setForm({ name: b.name, address: b.address || '', phone: b.phone || '' })
-                  setOpen(true)
-                }}
-              >
-                <Pencil />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={async () => {
-                  try {
-                    await put<Branch>(`/admin/branches/${b.id}`, { is_active: !b.is_active })
-                    reload()
-                  } catch (ex) {
-                    setActionErr((ex as Error).message)
-                  }
-                }}
-              >
-                <Power />
-                {b.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      },
-    }),
-  ]
+  const rows = (data?.data ?? []).filter((b) =>
+    [b.name, b.address, b.phone].some((v) =>
+      (v ?? '').toLowerCase().includes(q.toLowerCase()),
+    ),
+  )
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     try {
       if (editing) {
         await put<Branch>(`/admin/branches/${editing.id}`, form)
-        toast('Cabang diperbarui')
+        toast.success('Cabang diperbarui')
       } else {
         await post<Branch>('/admin/branches', form)
-        toast('Cabang dibuat')
+        toast.success('Cabang dibuat')
       }
       setEditing(null)
       setForm(empty)
       setOpen(false)
       reload()
     } catch (ex) {
-      toast((ex as Error).message, { variant: 'error' })
+      toast.error((ex as Error).message)
     }
   }
 
@@ -171,12 +133,66 @@ export default function Branches() {
         </DialogContent>
       </Dialog>
 
-      <DataTable
-        columns={columns}
-        data={data?.data ?? []}
-        globalFilter={q}
-        onGlobalFilterChange={setQ}
-      />
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nama</TableHead>
+              <TableHead>Alamat</TableHead>
+              <TableHead>Telepon</TableHead>
+              <TableHead>Aktif</TableHead>
+              <TableHead>Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((b) => (
+              <TableRow key={b.id}>
+                <TableCell>{b.name}</TableCell>
+                <TableCell>{b.address || '-'}</TableCell>
+                <TableCell>{b.phone || '-'}</TableCell>
+                <TableCell>{b.is_active ? 'Ya' : 'Tidak'}</TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8">
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditing(b)
+                          setForm({ name: b.name, address: b.address || '', phone: b.phone || '' })
+                          setOpen(true)
+                        }}
+                      >
+                        <Pencil />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          try {
+                            await put<Branch>(`/admin/branches/${b.id}`, { is_active: !b.is_active })
+                            reload()
+                          } catch (ex) {
+                            setActionErr((ex as Error).message)
+                          }
+                        }}
+                      >
+                        <Power />
+                        {b.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {!rows.length && (
+        <p className="mt-4 text-center text-sm text-muted-foreground">Tidak ada data.</p>
+      )}
     </>
   )
 }

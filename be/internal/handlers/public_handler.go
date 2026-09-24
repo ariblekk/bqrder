@@ -1,15 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"be/internal/domain/entities"
 	"be/internal/domain/repositories"
+	"be/internal/fcm"
 	"be/internal/realtime"
 	"be/internal/usecases"
 	"be/pkg/response"
@@ -18,12 +17,14 @@ import (
 type PublicHandler struct {
 	publicUseCase *usecases.PublicUseCase
 	hub           *realtime.Hub
+	push          *fcm.Service
 }
 
-func NewPublicHandler(publicUseCase *usecases.PublicUseCase, hub *realtime.Hub) *PublicHandler {
+func NewPublicHandler(publicUseCase *usecases.PublicUseCase, hub *realtime.Hub, push *fcm.Service) *PublicHandler {
 	return &PublicHandler{
 		publicUseCase: publicUseCase,
 		hub:           hub,
+		push:          push,
 	}
 }
 
@@ -86,6 +87,7 @@ func (h *PublicHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 	h.hub.Publish(order.BranchID, realtime.Event{Type: "order.new", OrderID: order.ID, OrderNumber: order.OrderNumber})
+	h.push.OrderCreated(order.BranchID, order)
 	response.Created(c, "order created successfully", order)
 }
 
@@ -125,42 +127,8 @@ func (h *PublicHandler) StreamOrderEvents(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-	c.Writer.WriteHeader(200)
-
 	ch, unsub := h.hub.Subscribe(order.BranchID)
 	defer unsub()
 
-	write := func(s string) bool {
-		if _, err := c.Writer.WriteString(s); err != nil {
-			return false
-		}
-		c.Writer.Flush()
-		return true
-	}
-
-	heartbeat := time.NewTicker(15 * time.Second)
-	defer heartbeat.Stop()
-
-	for {
-		select {
-		case <-c.Request.Context().Done():
-			return
-		case ev := <-ch:
-			if ev.OrderNumber != orderNumber {
-				continue
-			}
-			b, _ := json.Marshal(ev)
-			if !write("data: " + string(b) + "\n\n") {
-				return
-			}
-		case <-heartbeat.C:
-			if !write(": ping\n\n") {
-				return
-			}
-		}
-	}
+	streamSSE(c, ch, func(ev realtime.Event) bool { return ev.OrderNumber == orderNumber })
 }

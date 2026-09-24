@@ -21,18 +21,19 @@ const orderListQuery = `
 `
 
 type OrderRepo struct {
-	q Querier
+	q  Querier
+	tz string
 }
 
-func NewOrderRepo(q Querier) repositories.OrderRepository {
-	return &OrderRepo{q: q}
+func NewOrderRepo(q Querier, tz string) repositories.OrderRepository {
+	return &OrderRepo{q: q, tz: tz}
 }
 
 func scanOrder(scanner interface{ Scan(dest ...any) error }) (*entities.Order, error) {
 	var o entities.Order
 	err := scanner.Scan(&o.ID, &o.BranchID, &o.OrderNumber, &o.TableID, &o.CustomerName,
-		&o.TotalAmount, &o.Status, &o.PaymentStatus, &o.PaymentMethod, &o.CreatedAt, &o.UpdatedAt,
-		&o.TableNumber)
+		&o.TotalAmount, &o.Status, &o.PaymentStatus, &o.PaymentMethod,
+		&o.CreatedAt, &o.UpdatedAt, &o.TableNumber)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, repositories.ErrNotFound
@@ -85,9 +86,10 @@ func (r *OrderRepo) FindByOrderNumber(number string) (*entities.Order, error) {
 
 func (r *OrderRepo) ListTodayByBranch(branchID int) ([]entities.Order, error) {
 	rows, err := r.q.Query(orderListQuery+`
-		WHERE o.branch_id = $1 AND o.created_at::date = CURRENT_DATE
+		WHERE o.branch_id = $1
+		  AND (o.created_at AT TIME ZONE $2)::date = (CURRENT_TIMESTAMP AT TIME ZONE $2)::date
 		ORDER BY o.created_at DESC
-	`, branchID)
+	`, branchID, r.tz)
 	if err != nil {
 		return nil, err
 	}
@@ -181,29 +183,6 @@ func (r *OrderRepo) CreateOrderItemOptions(itemID int, optionIDs []int) error {
 	return nil
 }
 
-func (r *OrderRepo) GetOrderItemOptions(itemIDs []int) (map[int][]int, error) {
-	out := map[int][]int{}
-	if len(itemIDs) == 0 {
-		return out, nil
-	}
-	rows, err := r.q.Query(`
-		SELECT order_item_id, option_id FROM order_item_options
-		WHERE order_item_id = ANY($1)
-	`, pq.Array(itemIDs))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var itemID, optionID int
-		if err := rows.Scan(&itemID, &optionID); err != nil {
-			return nil, err
-		}
-		out[itemID] = append(out[itemID], optionID)
-	}
-	return out, rows.Err()
-}
-
 func (r *OrderRepo) GetOrderItemsBatch(orderIDs []int) (map[int][]entities.OrderItem, error) {
 	if len(orderIDs) == 0 {
 		return map[int][]entities.OrderItem{}, nil
@@ -249,10 +228,10 @@ func (r *OrderRepo) GetSalesSummary(branchID int, period string) (*entities.Sale
 				COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_amount END), 0) AS total_revenue,
 				COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_orders,
 				COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) AS cancelled_orders,
-				COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_orders
+				COALESCE(SUM(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END), 0) AS pending_orders
 			FROM orders
 			WHERE branch_id = $1
-			  AND date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE)
+			  AND date_trunc('month', created_at AT TIME ZONE $2) = date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE $2)
 		`
 	} else {
 		query = `
@@ -261,15 +240,15 @@ func (r *OrderRepo) GetSalesSummary(branchID int, period string) (*entities.Sale
 				COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_amount END), 0) AS total_revenue,
 				COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_orders,
 				COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) AS cancelled_orders,
-				COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_orders
+				COALESCE(SUM(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END), 0) AS pending_orders
 			FROM orders
 			WHERE branch_id = $1
-			  AND created_at::date = CURRENT_DATE
+			  AND (created_at AT TIME ZONE $2)::date = (CURRENT_TIMESTAMP AT TIME ZONE $2)::date
 		`
 	}
 
 	var s entities.SalesSummary
-	err := r.q.QueryRow(query, branchID).Scan(
+	err := r.q.QueryRow(query, branchID, r.tz).Scan(
 		&s.TotalOrders, &s.TotalRevenue, &s.CompletedOrders,
 		&s.CancelledOrders, &s.PendingOrders,
 	)
@@ -290,10 +269,10 @@ func (r *OrderRepo) GetDailySales(branchID int, date string) (*entities.SalesSum
 			COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_amount END), 0) AS total_revenue,
 			COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_orders,
 			COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) AS cancelled_orders,
-			COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_orders
+			COALESCE(SUM(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END), 0) AS pending_orders
 		FROM orders
-		WHERE branch_id = $1 AND created_at::date = $2::date
-	`, branchID, date).Scan(
+		WHERE branch_id = $1 AND (created_at AT TIME ZONE $3)::date = $2::date
+	`, branchID, date, r.tz).Scan(
 		&s.TotalOrders, &s.TotalRevenue, &s.CompletedOrders,
 		&s.CancelledOrders, &s.PendingOrders,
 	)
@@ -310,14 +289,14 @@ func (r *OrderRepo) GetSalesReport(branchID int, startDate, endDate string) (*en
 	report := &entities.SalesReport{}
 
 	dailyRows, err := r.q.Query(`
-		SELECT to_char(created_at, 'YYYY-MM-DD') AS date,
+		SELECT to_char(created_at AT TIME ZONE $4, 'YYYY-MM-DD') AS date,
 		       COUNT(*) AS total_orders,
 		       COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_amount END), 0) AS total_revenue
 		FROM orders
-		WHERE branch_id = $1 AND created_at::date BETWEEN $2::date AND $3::date
+		WHERE branch_id = $1 AND (created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
 		GROUP BY date
 		ORDER BY date
-	`, branchID, startDate, endDate)
+	`, branchID, startDate, endDate, r.tz)
 	if err != nil {
 		return nil, err
 	}
@@ -339,11 +318,11 @@ func (r *OrderRepo) GetSalesReport(branchID int, startDate, endDate string) (*en
 		JOIN orders o ON o.id = oi.order_id
 		JOIN products p ON p.id = oi.product_id
 		WHERE o.branch_id = $1 AND o.status = 'completed'
-		  AND o.created_at::date BETWEEN $2::date AND $3::date
+		  AND (o.created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
 		GROUP BY p.id, p.name
 		ORDER BY total_sold DESC
 		LIMIT 10
-	`, branchID, startDate, endDate)
+	`, branchID, startDate, endDate, r.tz)
 	if err != nil {
 		return nil, err
 	}
@@ -366,8 +345,8 @@ func (r *OrderRepo) GetSalesReport(branchID int, startDate, endDate string) (*en
 			COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) AS cancelled_orders,
 			COALESCE(SUM(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END), 0) AS pending_orders
 		FROM orders
-		WHERE branch_id = $1 AND created_at::date BETWEEN $2::date AND $3::date
-	`, branchID, startDate, endDate).Scan(
+		WHERE branch_id = $1 AND (created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
+	`, branchID, startDate, endDate, r.tz).Scan(
 		&summary.TotalOrders, &summary.TotalRevenue, &summary.CompletedOrders,
 		&summary.CancelledOrders, &summary.PendingOrders,
 	)

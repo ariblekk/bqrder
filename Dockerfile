@@ -3,7 +3,7 @@ WORKDIR /src/be
 COPY be/go.mod be/go.sum ./
 RUN go mod download
 COPY be/ .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/qrdigo ./cmd/server \
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/qrdigo . \
     && cp migrations/full_schema.sql /out/schema.sql
 
 FROM node:22-alpine AS web-build

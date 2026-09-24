@@ -10,19 +10,7 @@ import {
   StatusTag,
 } from '../ui'
 import type { Order } from '../../api/types'
-
-export function fmtRp(n: number) {
-  return `Rp ${n.toLocaleString('id-ID')}`
-}
-
-function timeAgo(iso: string) {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (m < 1) return 'baru saja'
-  if (m < 60) return `${m} mnt lalu`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} jam lalu`
-  return `${Math.floor(h / 24)} hari lalu`
-}
+import { formatRupiah, timeAgo } from '../../lib/utils'
 
 export default function OrderDetailDialog({
   order,
@@ -89,12 +77,12 @@ export default function OrderDetailDialog({
                     </span>
                     {it.notes && <em className="block truncate text-xs text-muted-foreground">({it.notes})</em>}
                   </span>
-                  <span className="shrink-0">{fmtRp(it.subtotal)}</span>
+                  <span className="shrink-0">{formatRupiah(it.subtotal)}</span>
                 </li>
               ))}
             </ul>
             <div className="flex items-center justify-between">
-              <strong>Total: {fmtRp(cur.total_amount)}</strong>
+              <strong>Total: {formatRupiah(cur.total_amount)}</strong>
               <div className="flex items-center gap-2">
                 {canProses && (
                   <Button

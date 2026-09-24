@@ -97,12 +97,6 @@ export interface OptionInput {
   sort_order?: number
 }
 
-export interface ProductList extends Envelope<Product[]> {
-  total: number
-  page: number
-  limit: number
-}
-
 export type OrderStatus = 'pending' | 'processing' | 'completed' | 'cancelled'
 export type PaymentStatus = 'unpaid' | 'paid' | 'refunded'
 
@@ -117,20 +111,6 @@ export interface OrderItem {
   notes?: string
   option_ids?: number[]
   subtotal: number
-}
-
-export interface CreateOrderItemInput {
-  product_id: number
-  variant_id?: number
-  option_ids?: number[]
-  quantity: number
-  notes?: string
-}
-
-export interface CreateOrderRequest {
-  table_id?: number
-  customer_name: string
-  items: CreateOrderItemInput[]
 }
 
 export interface Order {
